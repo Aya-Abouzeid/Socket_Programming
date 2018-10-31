@@ -8,6 +8,7 @@
 #include <zconf.h>
 #include <string>
 
+using namespace std;
 
 /**.
  * a request struct describing any request initiated by the client.
