@@ -6,6 +6,8 @@
 #define HTTP_CLIENT_REQUEST_H
 
 #include <zconf.h>
+#include <string>
+
 
 /**.
  * a request struct describing any request initiated by the client.
@@ -14,7 +16,7 @@ struct request {
     int request_type;
     char* file_name;
     char* host_name;
-    u_short port_number;
+    char* port_number;
 };
 
 #endif //HTTP_CLIENT_REQUEST_H

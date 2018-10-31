@@ -8,6 +8,7 @@
 #ifndef HTTP_CLIENT_SOCKETS_MANAGER_H
 #define HTTP_CLIENT_SOCKETS_MANAGER_H
 
+
 /**.
  * get socket file descriptor if already opened or open a new one if not.
  * @param request_info contains the server and the port to connect to
