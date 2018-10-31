@@ -142,3 +142,15 @@ CTestTestfile.cmake
 .nfs*
 
 # End of https://www.gitignore.io/api/c++,cmake,linux,clion
+
+CMakeLists\.txt
+
+\.idea/misc\.xml
+
+\.idea/codeStyles/Project\.xml
+
+\.idea/modules\.xml
+
+\.idea/socket_programming\.iml
+
+\.idea/vcs\.xml
