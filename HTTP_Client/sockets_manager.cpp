@@ -43,11 +43,11 @@ int get_socket_fd(struct request request_info) {
         exit(EXIT_FAILURE);
     }
 
-    char* host_name = request_info.host_name;
+    string host_name = request_info.host_name;
 
     u_short port_number = request_info.port_number;
 
-        server = gethostbyname(host_name);
+        server = gethostbyname(host_name.c_str());
 
         if (server == NULL) {
             fprintf(stderr, "ERROR, no such host\n");
