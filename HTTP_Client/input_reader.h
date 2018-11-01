@@ -12,6 +12,6 @@
 #include <vector>
 #include "request.h"
 
-vector<request> read_requests_from_file(string file_path);
+vector<vector<request>> read_requests_from_file(string file_path);
 
 #endif //SOCKET_PROGRAMMING_INPUT_READER_H

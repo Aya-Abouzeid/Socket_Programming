@@ -14,9 +14,9 @@ using namespace std;
  */
 struct request {
     int request_type;
-    char* file_name;
-    char* host_name;
-    char* port_number;
+    string file_name;
+    string host_name;
+    u_short port_number;
 };
 
 #endif //HTTP_CLIENT_REQUEST_H
