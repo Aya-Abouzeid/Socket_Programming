@@ -5,7 +5,6 @@
 #ifndef HTTP_CLIENT_REQUEST_H
 #define HTTP_CLIENT_REQUEST_H
 
-#include <zconf.h>
 #include <string>
 
 using namespace std;

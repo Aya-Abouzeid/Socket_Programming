@@ -9,12 +9,12 @@
 #include "request.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <string>
+#include <string.h>
 #include <netdb.h>
-
 
 int get_socket_fd(struct request request_info) {
 
@@ -39,11 +39,22 @@ int get_socket_fd(struct request request_info) {
     /**/
     socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if(socket_fd < 0) {
-        error("ERROR opening socket");
+        perror("ERROR opening socket");
         exit(EXIT_FAILURE);
     }
 
-        char* host_name = request_info.host_name;
+    char* host_name = request_info.host_name;
+
+    char* port_number = request_info.port_number;
+
+    string key = host_name;
+    key += "#";
+    key += port_number;
+
+    if (sockets.find(key) != sockets.end()){
+        int sock_fd = sockets[key];
+
+    } else {
 
         server = gethostbyname(host_name);
 
@@ -52,20 +63,23 @@ int get_socket_fd(struct request request_info) {
             exit(EXIT_FAILURE);
         }
         // clear address structure
-        bzero((char *) &serv_addr, sizeof(serv_addr));
-
-        // set address domain of the socket
-
-        char *port_number = request_info.port_number;
+        memset(&serv_addr, 0, sizeof(serv_addr));
 
         bcopy((char *) server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
 
         serv_addr.sin_port = htons(atoi(port_number));
 
+        // set address domain of the socket
         serv_addr.sin_family = AF_INET;
 
-        if (connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) != 0)
-            error("ERROR connecting");
+        if (connect(socket_fd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) != 0)
+            perror("ERROR connecting");
+
+        sockets[key] = socket_fd;
+    }
+
+
+
 
     return socket_fd;
 }
