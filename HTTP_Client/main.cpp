@@ -1,12 +1,25 @@
 #include <iostream>
 #include "input_reader.h"
+#include "sender.h"
+#include "sockets_manager.h"
 
 using namespace std;
+
+void process_request(vector<request> requests);
 
 int main() {
     cout << "Enter Input File Path!" << endl;
     string file_path;
     cin >> file_path;
     vector<vector<request>> requests = read_requests_from_file(file_path);
+    for (int i = 0; i < requests.size(); i++) {
+        process_request(requests[i]);
+    }
+
     return 0;
+}
+
+void process_request(vector<request> requests) {
+    int sock_fd = get_socket_fd(requests[0]);
+    send_request(sock_fd, requests);
 }

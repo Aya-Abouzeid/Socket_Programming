@@ -8,11 +8,14 @@
 #ifndef HTTP_CLIENT_CONNECTOR_H
 #define HTTP_CLIENT_CONNECTOR_H
 
+#include <vector>
+#include "request.h"
+
 /**.
  * Use the socket file descriptor to send the request to the server.
  * @param sock_fd socket file descriptor connected to the server
  * @param request_info the request data to send to server
  */
-void send_request(int sock_fd, struct request request_info);
+void send_request(int sock_fd, vector<request> request_info);
 
 #endif //HTTP_CLIENT_CONNECTOR_H
