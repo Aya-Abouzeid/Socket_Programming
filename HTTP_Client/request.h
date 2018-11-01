@@ -16,7 +16,7 @@ struct request {
     int request_type;
     char* file_name;
     char* host_name;
-    char* port_number;
+    u_short port_number;
 };
 
 #endif //HTTP_CLIENT_REQUEST_H

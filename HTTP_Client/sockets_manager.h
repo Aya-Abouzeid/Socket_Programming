@@ -7,10 +7,7 @@
 
 #ifndef HTTP_CLIENT_SOCKETS_MANAGER_H
 #define HTTP_CLIENT_SOCKETS_MANAGER_H
-#include <map>
 
-
-std::map<std::string, int> sockets;
 
 /**.
  * get socket file descriptor if already opened or open a new one if not.

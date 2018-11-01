@@ -45,16 +45,7 @@ int get_socket_fd(struct request request_info) {
 
     char* host_name = request_info.host_name;
 
-    char* port_number = request_info.port_number;
-
-    string key = host_name;
-    key += "#";
-    key += port_number;
-
-    if (sockets.find(key) != sockets.end()){
-        int sock_fd = sockets[key];
-
-    } else {
+    u_short port_number = request_info.port_number;
 
         server = gethostbyname(host_name);
 
@@ -67,17 +58,13 @@ int get_socket_fd(struct request request_info) {
 
         bcopy((char *) server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
 
-        serv_addr.sin_port = htons(atoi(port_number));
+        serv_addr.sin_port = htons(port_number);
 
         // set address domain of the socket
         serv_addr.sin_family = AF_INET;
 
         if (connect(socket_fd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) != 0)
             perror("ERROR connecting");
-
-        sockets[key] = socket_fd;
-    }
-
 
 
 
