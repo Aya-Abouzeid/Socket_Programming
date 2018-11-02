@@ -57,15 +57,14 @@ void send_request(int sock_fd, vector<request> requests_info) {
                 body = temp_received_data.substr(s+4, temp_received_data.size()-1);
             } else if (headersEnded) {
                 // having body
+                body.append(buffer);
             } else {
                 // header not ended
                 headers.append(buffer);
             }
-
             bzero(buffer, BUFFER_SIZE);
         }
-
-        //        map<string, string> headersMap = get_headers(headers);
+        map<string, string> headersMap = get_headers(headers);
 //        save_file(req, headers, body);
         cout << headers << endl << x;
     }
