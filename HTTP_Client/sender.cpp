@@ -18,14 +18,17 @@
 #include <netdb.h>
 
 void send_request(int sock_fd, vector<request> requests_info) {
-    ssize_t n;
-    char buffer[256];
-    char *header = "GET /t/wb4aa-1541146219/post HTTP/1.1\r\nHost: ptsv2.com\r\n\r\n";
+    ssize_t n = 0;
+    char buffer[512];
+    char *header = "GET /t/mhg3x-1541148013/post HTTP/1.1\r\nHost: ptsv2.com\r\n\r\n";
     n = write(sock_fd,header, strlen(header));
     printf("%zi\n", n);
-    bzero(buffer,256);
-    n = read(sock_fd,buffer,255);
-    printf("%zi\n", n);
-    printf("%s\n",buffer);
+    bzero(buffer,512);
+    while (n != -1) {
+        n = read(sock_fd,buffer,255);
+        printf("%zi\n", n);
+        printf("%s\n",buffer);
+        bzero(buffer,256);
+    }
     close(sock_fd);
 }
