@@ -16,16 +16,22 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include "constants.h"
+
+string REQUEST_TYPES[2] = { "GET", "POST" };
 
 void send_request(int sock_fd, vector<request> requests_info) {
     ssize_t n;
     char buffer[256];
-    char *header = "GET /t/wb4aa-1541146219/post HTTP/1.1\r\nHost: ptsv2.com\r\n\r\n";
-    n = write(sock_fd,header, strlen(header));
-    printf("%zi\n", n);
-    bzero(buffer,256);
-    n = read(sock_fd,buffer,255);
-    printf("%zi\n", n);
-    printf("%s\n",buffer);
+    for (auto req : requests_info) {
+        string header = REQUEST_TYPES[req.request_type] + " " + req.file_name
+                        + " HTTP/1.1\r\nHost: " + req.host_name + "\r\n\r\n";
+        n = write(sock_fd, header.c_str(), strlen(header.c_str()));
+        printf("%zi\n", n);
+        bzero(buffer, 256);
+        n = read(sock_fd, buffer, 255);
+        printf("%zi\n", n);
+        printf("%s\n", buffer);
+    }
     close(sock_fd);
 }
