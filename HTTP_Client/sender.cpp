@@ -23,50 +23,78 @@
 
 string REQUEST_TYPES[2] = { "GET", "POST" };
 
-map<string, string> get_headers(const string buffer);
+const int BUFFER_SIZE = 512;
+
+map<string, string> get_headers(const string headers);
 string get_header(request req);
 
 void send_request(int sock_fd, vector<request> requests_info) {
     ssize_t n = 0;
-    char buffer[512];
+    char buffer[BUFFER_SIZE];
     for (auto req : requests_info) {
         string header = get_header(req);
         n = write(sock_fd, header.c_str(), strlen(header.c_str()));
         printf("%zi\n", n);
-        bzero(buffer, 512);
-
+        bzero(buffer, BUFFER_SIZE);
+        bool headersEnded = false;
+        string headers;
+        string body;
         while (n > 0) {
-            n = read(sock_fd, buffer, 255);
-            printf("%zi\n", n);
-            printf("%s\n", buffer);
-            map<string, string> headers = get_headers(string(buffer));
-            bzero(buffer, 256);
+            n = read(sock_fd, buffer, BUFFER_SIZE);
+            if (n == 0) break;
+//            printf("%zi\n", n);
+//            printf("%s\n", buffer);
+            if (!headersEnded) {
+                stringstream ss(buffer);
+                string line;
+                int headerlineNumber = 1;
+                int bodyLineNumber = 1;
+                while (getline(ss, line)) {
+                    if (line == "\r") {
+                        headersEnded = true;
+                    } else if (headersEnded) {
+                        if (bodyLineNumber == 1) {
+                            body += line;
+                        } else {
+                            body += '\n' + line;
+                        }
+                        bodyLineNumber++;
+                    } else {
+                        if (headerlineNumber == 1) {
+                            headers += line;
+                        } else {
+                            headers += '\n' + line;
+                        }
+                        headerlineNumber++;
+                    }
+                }
+            } else {
+                body += buffer;
+            }
+            bzero(buffer, BUFFER_SIZE);
         }
+        map<string, string> headersMap = get_headers(headers);
+        headersMap.size();
     }
     close(sock_fd);
 }
 
-map<string, string> get_headers(const string buffer) {
-    stringstream ss(buffer);
+map<string, string> get_headers(const string headers) {
+    stringstream ss(headers);
     string line;
-    bool nextIsBody = false;
-    map<string, string> headers;
+    map<string, string> ret;
     while (getline(ss, line)) {
         vector<string> tokens = split(line, ':');
-        if (line == "\r") {
-            nextIsBody = true;
-        } else if (nextIsBody) {
-            headers[CONTENT_BODY] += line;
-        } else if (tokens.size() == 1) {
-            headers[STATUS_CODE] = split(tokens[0], ' ')[1];
+        if (tokens.size() == 1) {
+            ret[STATUS_CODE] = split(tokens[0], ' ')[1];
         } else {
-            headers[tokens[0]] = tokens[1];
+            ret[tokens[0]] = tokens[1];
         }
     }
-    return headers;
+    return ret;
 }
 
 string get_header(request req) {
     return REQUEST_TYPES[req.request_type] + " " + req.file_name
-           + " HTTP/1.1\r\nHost: " + req.host_name + "\r\n\r\n";
+           + " HTTP/1.0\r\nHost: " + req.host_name + "\r\n\r\n";
 }
