@@ -24,17 +24,18 @@
 string REQUEST_TYPES[2] = { "GET", "POST" };
 
 map<string, string> get_headers(const string buffer);
+string get_header(request req);
 
 void send_request(int sock_fd, vector<request> requests_info) {
     ssize_t n = 0;
     char buffer[512];
     for (auto req : requests_info) {
-        string header = REQUEST_TYPES[req.request_type] + " " + req.file_name
-                        + " HTTP/1.1\r\nHost: " + req.host_name + "\r\n\r\n";
+        string header = get_header(req);
         n = write(sock_fd, header.c_str(), strlen(header.c_str()));
         printf("%zi\n", n);
         bzero(buffer, 512);
-        while (n != -1) {
+
+        while (n > 0) {
             n = read(sock_fd, buffer, 255);
             printf("%zi\n", n);
             printf("%s\n", buffer);
@@ -55,7 +56,7 @@ map<string, string> get_headers(const string buffer) {
         if (line == "\r") {
             nextIsBody = true;
         } else if (nextIsBody) {
-            headers[CONTENT_BODY] += tokens[0];
+            headers[CONTENT_BODY] += line;
         } else if (tokens.size() == 1) {
             headers[STATUS_CODE] = split(tokens[0], ' ')[1];
         } else {
@@ -63,4 +64,9 @@ map<string, string> get_headers(const string buffer) {
         }
     }
     return headers;
+}
+
+string get_header(request req) {
+    return REQUEST_TYPES[req.request_type] + " " + req.file_name
+           + " HTTP/1.1\r\nHost: " + req.host_name + "\r\n\r\n";
 }
