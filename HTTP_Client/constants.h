@@ -10,4 +10,7 @@
 #define GET 0
 #define POST 1
 
+#define STATUS_CODE "Status-Code"
+#define CONTENT_BODY "Content-Body"
+
 #endif //HTTP_CLIENT_CONSTANTS_H

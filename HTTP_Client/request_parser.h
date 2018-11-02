@@ -20,4 +20,6 @@ using namespace std;
  */
 request parse_request(string request_line);
 
+vector<string> split(const string &s, char delim);
+
 #endif //HTTP_CLIENT_REQUEST_PARSER_H

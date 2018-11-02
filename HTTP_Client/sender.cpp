@@ -16,9 +16,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <map>
+#include <sstream>
 #include "constants.h"
+#include "request_parser.h"
 
 string REQUEST_TYPES[2] = { "GET", "POST" };
+
+map<string, string> get_headers(const string buffer);
 
 void send_request(int sock_fd, vector<request> requests_info) {
     ssize_t n = 0;
@@ -33,8 +38,29 @@ void send_request(int sock_fd, vector<request> requests_info) {
             n = read(sock_fd, buffer, 255);
             printf("%zi\n", n);
             printf("%s\n", buffer);
+            map<string, string> headers = get_headers(string(buffer));
             bzero(buffer, 256);
         }
     }
     close(sock_fd);
+}
+
+map<string, string> get_headers(const string buffer) {
+    stringstream ss(buffer);
+    string line;
+    bool nextIsBody = false;
+    map<string, string> headers;
+    while (getline(ss, line)) {
+        vector<string> tokens = split(line, ':');
+        if (line == "\r") {
+            nextIsBody = true;
+        } else if (nextIsBody) {
+            headers[CONTENT_BODY] += tokens[0];
+        } else if (tokens.size() == 1) {
+            headers[STATUS_CODE] = split(tokens[0], ' ')[1];
+        } else {
+            headers[tokens[0]] = tokens[1];
+        }
+    }
+    return headers;
 }
