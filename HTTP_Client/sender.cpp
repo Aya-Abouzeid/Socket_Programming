@@ -21,17 +21,20 @@
 string REQUEST_TYPES[2] = { "GET", "POST" };
 
 void send_request(int sock_fd, vector<request> requests_info) {
-    ssize_t n;
-    char buffer[256];
+    ssize_t n = 0;
+    char buffer[512];
     for (auto req : requests_info) {
         string header = REQUEST_TYPES[req.request_type] + " " + req.file_name
                         + " HTTP/1.1\r\nHost: " + req.host_name + "\r\n\r\n";
         n = write(sock_fd, header.c_str(), strlen(header.c_str()));
         printf("%zi\n", n);
-        bzero(buffer, 256);
-        n = read(sock_fd, buffer, 255);
-        printf("%zi\n", n);
-        printf("%s\n", buffer);
+        bzero(buffer, 512);
+        while (n != -1) {
+            n = read(sock_fd, buffer, 255);
+            printf("%zi\n", n);
+            printf("%s\n", buffer);
+            bzero(buffer, 256);
+        }
     }
     close(sock_fd);
 }
