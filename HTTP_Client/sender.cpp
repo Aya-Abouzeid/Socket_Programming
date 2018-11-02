@@ -18,6 +18,7 @@
 #include <netdb.h>
 #include <map>
 #include <sstream>
+#include <fstream>
 #include "constants.h"
 #include "request_parser.h"
 
@@ -27,6 +28,8 @@ const int BUFFER_SIZE = 512;
 
 map<string, string> get_headers(const string headers);
 string get_header(request req);
+
+void save_file(const request &req, const string &headers, const string &body);
 
 void send_request(int sock_fd, vector<request> requests_info) {
     ssize_t n = 0;
@@ -42,8 +45,6 @@ void send_request(int sock_fd, vector<request> requests_info) {
         while (n > 0) {
             n = read(sock_fd, buffer, BUFFER_SIZE);
             if (n == 0) break;
-//            printf("%zi\n", n);
-//            printf("%s\n", buffer);
             if (!headersEnded) {
                 stringstream ss(buffer);
                 string line;
@@ -74,9 +75,19 @@ void send_request(int sock_fd, vector<request> requests_info) {
             bzero(buffer, BUFFER_SIZE);
         }
         map<string, string> headersMap = get_headers(headers);
-        headersMap.size();
+        save_file(req, headers, body);
     }
     close(sock_fd);
+}
+
+void save_file(const request &req, const string &headers, const string &body) {
+    ofstream file;
+//    file.open(req.file_name + "." + headers["Content-Type"]);
+//    file.open(req.file_name + "." + "txt");
+    file.open("output.txt");
+    file << body;
+    file << body;
+    file.close();
 }
 
 map<string, string> get_headers(const string headers) {
