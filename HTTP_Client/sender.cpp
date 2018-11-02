@@ -19,11 +19,13 @@
 
 void send_request(int sock_fd, vector<request> requests_info) {
     ssize_t n;
-    char *header = "GET /t/4pa1k-1541106672 HTTP/1.1\nHost: www.ptsv2.com\n";
+    char buffer[256];
+    char *header = "GET /t/wb4aa-1541146219/post HTTP/1.1\r\nHost: ptsv2.com\r\n\r\n";
     n = write(sock_fd,header, strlen(header));
     printf("%zi\n", n);
-    n = read(sock_fd,header,255);
+    bzero(buffer,256);
+    n = read(sock_fd,buffer,255);
     printf("%zi\n", n);
-    printf("%s\n",header);
+    printf("%s\n",buffer);
     close(sock_fd);
 }
