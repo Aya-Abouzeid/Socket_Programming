@@ -19,6 +19,7 @@
 #include <map>
 #include <sstream>
 #include <fstream>
+#include <iostream>
 #include "constants.h"
 #include "request_parser.h"
 
@@ -36,56 +37,45 @@ void send_request(int sock_fd, vector<request> requests_info) {
     char buffer[BUFFER_SIZE];
     for (auto req : requests_info) {
         string header = get_header(req);
+        int x = 0;
         n = write(sock_fd, header.c_str(), strlen(header.c_str()));
         printf("%zi\n", n);
         bzero(buffer, BUFFER_SIZE);
         bool headersEnded = false;
         string headers;
         string body;
+        ofstream file("output.txt", std::ofstream::binary);
+
         while (n > 0) {
-            n = read(sock_fd, buffer, BUFFER_SIZE);
-            if (n == 0) break;
-            if (!headersEnded) {
-                stringstream ss(buffer);
-                string line;
-                int headerlineNumber = 1;
-                int bodyLineNumber = 1;
-                while (getline(ss, line)) {
-                    if (line == "\r") {
-                        headersEnded = true;
-                    } else if (headersEnded) {
-                        if (bodyLineNumber == 1) {
-                            body += line;
-                        } else {
-                            body += '\n' + line;
-                        }
-                        bodyLineNumber++;
-                    } else {
-                        if (headerlineNumber == 1) {
-                            headers += line;
-                        } else {
-                            headers += '\n' + line;
-                        }
-                        headerlineNumber++;
-                    }
-                }
+            n = read(sock_fd, buffer, BUFFER_SIZE - 1);
+            string temp_received_data = headers + buffer;
+            unsigned long s = temp_received_data.find("\r\n\r\n");
+            if (s != string::npos) {
+                headersEnded = true;
+                string rest_of_header = temp_received_data.substr(0, s);
+                headers.append(rest_of_header);
+                body = temp_received_data.substr(s+4, temp_received_data.size()-1);
+            } else if (headersEnded) {
+                // having body
             } else {
-                body += buffer;
+                // header not ended
+                headers.append(buffer);
             }
+
             bzero(buffer, BUFFER_SIZE);
         }
-        map<string, string> headersMap = get_headers(headers);
-        save_file(req, headers, body);
+
+        //        map<string, string> headersMap = get_headers(headers);
+//        save_file(req, headers, body);
+        cout << headers << endl << x;
     }
     close(sock_fd);
 }
 
 void save_file(const request &req, const string &headers, const string &body) {
-    ofstream file;
+    ofstream file("output.txt", std::ofstream::binary);
 //    file.open(req.file_name + "." + headers["Content-Type"]);
 //    file.open(req.file_name + "." + "txt");
-    file.open("output.txt");
-    file << body;
     file << body;
     file.close();
 }
