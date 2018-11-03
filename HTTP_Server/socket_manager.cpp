@@ -54,7 +54,6 @@ int get_socket_fd(struct server server_info) {
          the socket file descriptor,
          the address to which is bound,
          and the size of the address to which it is bound
-        0 -> default protocol should be used
     /**/
     if (bind(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
         perror("ERROR on binding");
