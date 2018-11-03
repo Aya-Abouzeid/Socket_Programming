@@ -38,7 +38,7 @@ int get_socket_fd(struct request request_info) {
     /**/
     socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if(socket_fd < 0) {
-        perror("ERROR opening socket");
+        perror("ERROR opening client socket");
         exit(EXIT_FAILURE);
     }
 
@@ -52,6 +52,7 @@ int get_socket_fd(struct request request_info) {
             fprintf(stderr, "ERROR, no such host\n");
             exit(EXIT_FAILURE);
         }
+
         // clear address structure
         memset(&serv_addr, 0, sizeof(serv_addr));
 
