@@ -1,6 +1,9 @@
-//
-// Created by marc on 10/30/18.
-//
+/**
+ * CS431 : Networks.
+ * Assignment 1 : HTTP Client
+ * @author Marc Magdi
+ * Tuesday 30 October 2018
+ */
 
 #ifndef HTTP_CLIENT_REQUEST_H
 #define HTTP_CLIENT_REQUEST_H

@@ -25,58 +25,66 @@
 
 string REQUEST_TYPES[2] = { "GET", "POST" };
 
-const int BUFFER_SIZE = 512;
-
 map<string, string> get_headers(const string headers);
 string get_header(request req);
-
-void save_file(const request &req, const string &headers, const string &body);
+string get_last_header(request req);
 
 void send_request(int sock_fd, vector<request> requests_info) {
     ssize_t n = 0;
     char buffer[BUFFER_SIZE];
-    for (auto req : requests_info) {
-        string header = get_header(req);
-        int x = 0;
+    for (int i = 0; i < requests_info.size(); i++) {
+        auto req = requests_info[i];
+        string header;
+
+        // tell the server to close the connection if this is the last connection in the vector
+        if (i == requests_info.size() - 1) {
+            header = get_last_header(req);
+        } else {
+            header = get_header(req);
+        }
+
         n = write(sock_fd, header.c_str(), strlen(header.c_str()));
-        printf("%zi\n", n);
         bzero(buffer, BUFFER_SIZE);
         bool headersEnded = false;
         string headers;
-        string body;
-        ofstream file("output.txt", std::ofstream::binary);
+        FILE *file_to_save;
+        map<string, string> headersMap;
+        unsigned long content_length = 0;
 
-        while (n > 0) {
+        while (n > 0 && (!headersEnded || content_length != atol(headersMap.find("Content-Length").operator*().second.c_str()))) {
             n = read(sock_fd, buffer, BUFFER_SIZE - 1);
             string temp_received_data = headers + buffer;
-            unsigned long s = temp_received_data.find("\r\n\r\n");
-            if (s != string::npos) {
+            unsigned long s = temp_received_data.find(HEADER_END);
+
+            if (headersEnded) { // appending body data to file
+                fwrite((void *) buffer, sizeof(char), sizeof(char) * n, file_to_save);
+                content_length += n;
+            } else if (s != string::npos) { // finish reading header data
                 headersEnded = true;
                 string rest_of_header = temp_received_data.substr(0, s);
                 headers.append(rest_of_header);
-                body = temp_received_data.substr(s+4, temp_received_data.size()-1);
-            } else if (headersEnded) {
-                // having body
-                body.append(buffer);
-            } else {
-                // header not ended
+                headersMap = get_headers(headers);
+                string body = temp_received_data.substr(s+4, temp_received_data.size()-1);
+                char * temp_body = new char [body.length()+1];
+                strcpy (temp_body, body.c_str());
+
+                file_to_save = fopen("image.txt",  "w+");
+                content_length = strlen(temp_body);
+                fwrite((void*) temp_body, sizeof(char), sizeof(temp_body), file_to_save);
+            } else { // header not ended
                 headers.append(buffer);
             }
+
             bzero(buffer, BUFFER_SIZE);
         }
-        map<string, string> headersMap = get_headers(headers);
-//        save_file(req, headers, body);
-        cout << headers << endl << x;
+
+        if (n < 0) {
+            perror("error getting data from server");
+        }
+
+        fclose(file_to_save);
     }
     close(sock_fd);
-}
-
-void save_file(const request &req, const string &headers, const string &body) {
-    ofstream file("output.txt", std::ofstream::binary);
-//    file.open(req.file_name + "." + headers["Content-Type"]);
-//    file.open(req.file_name + "." + "txt");
-    file << body;
-    file.close();
 }
 
 map<string, string> get_headers(const string headers) {
@@ -84,17 +92,33 @@ map<string, string> get_headers(const string headers) {
     string line;
     map<string, string> ret;
     while (getline(ss, line)) {
-        vector<string> tokens = split(line, ':');
-        if (tokens.size() == 1) {
-            ret[STATUS_CODE] = split(tokens[0], ' ')[1];
+        unsigned long s = line.find(": ");
+        if (s == string::npos) { // (:) not found, get http response code
+            ret[STATUS_CODE] = split(line, ' ')[1];
         } else {
-            ret[tokens[0]] = tokens[1];
+            ret[line.substr(0, s)] = line.substr(s+2, line.size()-1);
         }
     }
     return ret;
 }
 
+string get_last_header(request req) {
+    return REQUEST_TYPES[req.request_type] + " " + req.file_name
+           + " HTTP/1.0\r\nHost: " + req.host_name + "\r\nConnection: close\r\n\r\n";
+}
+
 string get_header(request req) {
     return REQUEST_TYPES[req.request_type] + " " + req.file_name
-           + " HTTP/1.0\r\nHost: " + req.host_name + "\r\n\r\n";
+           + " HTTP/1.1\r\nHost: " + req.host_name + "\r\n\r\n";
+}
+
+string get_file_name(request req) {
+    vector<string> tokens = split(req.file_name, '/');
+    string name = tokens[tokens.size()-1];
+
+    return tokens[tokens.size()-1];
+}
+
+string get_file_extension() {
+
 }

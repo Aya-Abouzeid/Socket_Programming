@@ -13,4 +13,8 @@
 #define STATUS_CODE "Status-Code"
 #define CONTENT_BODY "Content-Body"
 
+const int BUFFER_SIZE = 512;
+const string HEADER_END = "\r\n\r\n";
+
+
 #endif //HTTP_CLIENT_CONSTANTS_H
