@@ -9,7 +9,7 @@
 #include <fstream>
 #include <netinet/in.h>
 #include <strings.h>
-#include <HTTP_Client/constants.h>
+#include <constants.h>
 #include <unistd.h>
 
 using namespace std;

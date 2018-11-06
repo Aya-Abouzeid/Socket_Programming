@@ -31,6 +31,7 @@ request parse_request(string request_line , int client_fd) {
     vector<string> tokens = split(request_line, ' ');
     tokens[0] == "GET" ? req.request_type = GET : req.request_type= POST;
     req.file_name = tokens[1];
+    req.HTTPVer = tokens[2];
     req.client_fd = client_fd;
     return req;
 }

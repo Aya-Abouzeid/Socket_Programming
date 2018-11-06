@@ -7,6 +7,10 @@
 #ifndef HTTP_CLIENT_CONSTANTS_H
 #define HTTP_CLIENT_CONSTANTS_H
 
+#include <string>
+
+
+
 #define GET 0
 #define POST 1
 
@@ -14,7 +18,7 @@
 #define CONTENT_BODY "Content-Body"
 
 const int BUFFER_SIZE = 512;
-const string HEADER_END = "\r\n\r\n";
+const std::string HEADER_END = "\r\n\r\n";
 
 
 #endif //HTTP_CLIENT_CONSTANTS_H

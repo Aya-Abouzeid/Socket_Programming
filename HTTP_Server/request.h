@@ -19,6 +19,8 @@ struct request {
     int client_fd;
     int request_type;
     string file_name;
+    string body;
+    string HTTPVer;
 };
 
 #endif //HTTP_Server_REQUEST_H
