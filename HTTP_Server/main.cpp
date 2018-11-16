@@ -14,9 +14,10 @@
 
 using namespace std;
 
+void *connection_handler(void *client_socket);
 
 int main(int argc,char* argv[]) {
-    int sockfd, newsockfd, port_number;
+    int sockfd, *newsockfd, port_number;
     struct sockaddr_in serv_addr, cli_addr;
 
     if (argc > 1) {
@@ -42,11 +43,18 @@ int main(int argc,char* argv[]) {
     }
     listen(sockfd, 5);
     socklen_t clilen = sizeof(cli_addr);
-    newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr,  &clilen);
-    if (newsockfd < 0) {
-        cout << "ERROR on accept\n";
-        exit(1);
+    while (newsockfd = accept(sockfd, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen)) {
+        cout << "Connection accepted";
+        pthread_t thread;
+        newsockfd = malloc(1);
+        *newsockfd = cli_addr;
+        if (pthread_create( &thread, NULL, connection_handler, (void*) newsockfd) < 0) {
+            cout << "could not create thread";
+            return 1;
+        }
+        cout << "Handler assigned";
     }
+
     char buffer[BUFFER_SIZE];
     bzero(buffer, BUFFER_SIZE);
     int n = read(newsockfd, buffer, BUFFER_SIZE - 1);
@@ -64,4 +72,8 @@ int main(int argc,char* argv[]) {
     close(newsockfd);
     close(sockfd);
     return 0;
+}
+
+void *connection_handler(void *client_socket) {
+
 }
