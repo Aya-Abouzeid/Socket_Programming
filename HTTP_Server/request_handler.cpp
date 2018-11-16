@@ -7,8 +7,11 @@
 #include <cstring>
 #include <unistd.h>
 #include <iostream>
-#include <HTTP_Client/request.h>
+#include <request.h>
+#include <sstream>
 #include <fstream>
+#include <iostream>
+#include <algorithm>
 #include "request_handler.h"
 #include "server_constants.h"
 #include "request_parser.h"
@@ -32,18 +35,22 @@ void handle_request(int client_fd) {
     string header = "";
     string totalReadTillNow = "";
     ssize_t n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
+
     if (n < 0) {
         cout << "ERROR reading from socket\n";
         exit(1);
     }
+
     while (n > 0 && !headerEnded) {
         totalReadTillNow += buffer;
         unsigned long s = totalReadTillNow.find(REQUEST_HEADER_END);
+
         if (headerEnded) { // appending body data to file
 
         } else if (s != string::npos) { // finish reading header data
             headerEnded = true;
             header = totalReadTillNow.substr(0, s);
+            cout << totalReadTillNow;
             struct server_request req = extract_request_params_from_header(header);
             if (req.request_type == GET) {
                 handle_get_request(req, client_fd);
@@ -72,9 +79,18 @@ void handle_request(int client_fd) {
 void handle_get_request(server_request request, int client_fd) {
     ifstream inFile;
     string file_name = request.file_name.substr(1);
-    inFile.open(file_name);
+    inFile.open(file_name, ios::binary);
+
+    inFile.seekg (0, ios::end);
+    long len = inFile.tellg();
+    inFile.seekg (0, ios::beg);
+    char* body = new char [len];
+    inFile.read (body, len);
+    string xx = string(body);
+
     if (!inFile) {
-        const char *response = "HTTP/1.1 404 Not Found\r\n";
+        const char *response = "HTTP/1.1 404 Not Found\r\n\r\n";
+
         ssize_t n = write(client_fd, response, strlen(response));
         if (n < 0) {
             cout << "ERROR writing to socket\n";
@@ -86,14 +102,16 @@ void handle_get_request(server_request request, int client_fd) {
         if (tokens.size() == 1) tokens.emplace_back("");
         initialize_file_extensions_if_needed();
         string content_type = FILE_EXTENSIONS[tokens[1]];
+
         string content_length = to_string(get_content_length(file_name));
         string content_body = get_content_body(file_name, std::atoi(content_length.c_str()));
         string response = "HTTP/1.1 200 OK\r\nContent-Type: " + content_type
-                          + "\r\nContent-Length: " + content_length + "\r\n\r\n" + content_body;
-        ssize_t n = 1   ;
+                          + "\r\nContent-Length: " + content_length + "\r\n\r\n";
+        ssize_t n = 1;
         int sz = response.length();
 //        while (n < sz) {
             n = write(client_fd, response.c_str(), strlen(response.c_str()));
+            write(client_fd, body, (int) len);
             cout << n << endl << strlen(response.c_str());
 //            sz -= n;
 //        }
@@ -106,11 +124,10 @@ void handle_get_request(server_request request, int client_fd) {
 
 string get_content_body(string file_name, int content_length) {
     ifstream is;
-    is.open (file_name, ios::binary | ios::in);
-    is.seekg (0, is.beg);
-    char* body = new char [content_length + 1];
+    is.open (file_name, ios::binary);
+    is.seekg (0, ios::beg);
+    char* body = new char [content_length];
     is.read (body, content_length);
-    body[content_length - 1] = '\n';
     is.close();
     cout << body << endl;
     return body;
