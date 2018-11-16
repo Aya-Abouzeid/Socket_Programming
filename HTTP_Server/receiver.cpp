@@ -7,13 +7,6 @@
 
 #include "receiver.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 
 void receive(int socket_fd){
 
@@ -58,12 +51,24 @@ void receive(int socket_fd){
 
         if (PID == 0) {
 
+            request req;
+
             bzero(buffer,10000);
+            string line = "";
 
             while ((char_read = read(new_socket_fd, buffer, sizeof(buffer))) > 0) {
+                for (int i=0 ; i< char_read ; i++) {
+                    line += buffer[i];
 
+                    if(line.size() > 4 && line.substr(line.size()-4 , line.size()) == HEADER_END) {
+                        req = parse_request(line.substr(0, line.size()-4));
+                        line = "";
+                    }
 
+                }
             }
+            req.body = line;
+            respond(req);
 
             if (char_read < 0)
                 perror("ERROR reading from socket");
