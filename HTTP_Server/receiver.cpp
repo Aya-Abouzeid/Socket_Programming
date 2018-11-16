@@ -51,7 +51,7 @@ void receive(int socket_fd){
 
         if (PID == 0) {
 
-            request req;
+            server_request req;
 
             bzero(buffer,10000);
             string line = "";
@@ -60,15 +60,15 @@ void receive(int socket_fd){
                 for (int i=0 ; i< char_read ; i++) {
                     line += buffer[i];
 
-                    if(line.size() > 4 && line.substr(line.size()-4 , line.size()) == HEADER_END) {
-                        req = parse_request(line.substr(0, line.size()-4));
+                    if(line.size() > 4 && line.substr(line.size()-4 , line.size()) == REQUEST_HEADER_END) {
+                        req = parse_request(line.substr(0, line.size()-4), new_socket_fd);
                         line = "";
                     }
 
                 }
             }
             req.body = line;
-            respond(req);
+//            respond(req);
 
             if (char_read < 0)
                 perror("ERROR reading from socket");

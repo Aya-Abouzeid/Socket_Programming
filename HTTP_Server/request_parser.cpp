@@ -9,7 +9,7 @@
 #include <vector>
 #include <sstream>
 #include "request_parser.h"
-#include "constants.h"
+#include "server_constants.h"
 
 template<typename Out>
 void split(const std::string &s, char delim, Out result) {
@@ -26,8 +26,8 @@ vector<string> split(const string &s, char delim) {
     return elems;
 }
 
-request parse_request(string request_line , int client_fd) {
-    request req;
+server_request parse_request(string request_line, int client_fd) {
+    server_request req;
     vector<string> tokens = split(request_line, ' ');
     tokens[0] == "GET" ? req.request_type = GET : req.request_type= POST;
     req.file_name = tokens[1];
@@ -36,3 +36,10 @@ request parse_request(string request_line , int client_fd) {
     return req;
 }
 
+server_request extract_request_params_from_header(string header) {
+    server_request req;
+    vector<string> tokens = split(header, ' ');
+    tokens[0] == "GET" ? req.request_type = GET : req.request_type = POST;
+    req.file_name = tokens[1];
+    return req;
+}

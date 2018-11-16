@@ -10,9 +10,7 @@
 #include "server_info.h"
 
 
-class socket_manager {
-
-};
+int get_socket_fd(struct server server_info);
 
 
 #endif //SOCKET_PROGRAMMING_SOCKET_MANAGER_H

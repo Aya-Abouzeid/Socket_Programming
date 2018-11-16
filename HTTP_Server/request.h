@@ -15,7 +15,7 @@ using namespace std;
 /**.
  * a request struct describing any request initiated by the client.
  */
-struct request {
+struct server_request {
     int client_fd;
     int request_type;
     string file_name;

@@ -9,7 +9,6 @@
 #define SOCKET_PROGRAMMING_RECEIVER_H
 
 #include "request.h"
-#include "response_handler.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,9 +17,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <vector>
-#include "response_handler.h"
 #include "request_parser.h"
-#include "constants.h"
+#include "server_constants.h"
 
 using namespace std;
 
