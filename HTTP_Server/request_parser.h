@@ -1,12 +1,12 @@
 /**
  * CS431 : Networks.
- * Assignment 1 : HTTP Client
+ * Assignment 1 : HTTP Server
  * @author Marc Magdi
  * Tuesday 30 October 2018
  */
 
-#ifndef HTTP_CLIENT_REQUEST_PARSER_H
-#define HTTP_CLIENT_REQUEST_PARSER_H
+#ifndef HTTP_Server_REQUEST_PARSER_H
+#define HTTP_Server_REQUEST_PARSER_H
 
 #include "request.h"
 #include <vector>
@@ -23,4 +23,4 @@ request parse_request(string request_line);
 
 vector<string> split(const string &s, char delim);
 
-#endif //HTTP_CLIENT_REQUEST_PARSER_H
+#endif //HTTP_Server_REQUEST_PARSER_H
