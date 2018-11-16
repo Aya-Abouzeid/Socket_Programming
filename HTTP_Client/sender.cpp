@@ -44,17 +44,31 @@ string get_header(bool last_request_for_server, request req);
 
 string get_file_name(request req, map<string, string> headersMap);
 string get_file_type(string const file_name);
-void process_get_request(int sock_fd, request req, bool last_request_for_server);
-void process_post_request(int sock_fd, request req, bool last_request_for_server);
+void process_get_request(int sock_fd, request req);
+void process_post_request(int sock_fd, request req);
+void send_get_request(int sock_fd, request req, bool last_request_for_server);
+void send_post_request(int sock_fd, request req, bool last_request_for_server);
 
 void send_request(int sock_fd, vector<request> requests_info) {
+    // send all requests
     for (int i = 0; i < requests_info.size(); i++) {
         auto req = requests_info[i];
         if (req.request_type == GET)
-            process_get_request(sock_fd, req, i == requests_info.size()-1);
+            send_get_request(sock_fd, req, i == requests_info.size()-1);
         else if (req.request_type == POST)
-            process_post_request(sock_fd, req, i == requests_info.size()-1);
+            send_post_request(sock_fd, req, i == requests_info.size()-1);
     }
+
+
+    // get all responses
+    for (int i = 0; i < requests_info.size(); i++) {
+        auto req = requests_info[i];
+        if (req.request_type == GET)
+            process_get_request(sock_fd, req);
+        else if (req.request_type == POST)
+            process_post_request(sock_fd, req);
+    }
+
     close(sock_fd);
 }
 
@@ -101,10 +115,49 @@ string post_header(bool last_request_for_server, request req, long file_size, st
     return header;
 }
 
-void process_get_request(int sock_fd, request req, bool last_request_for_server) {
+void send_get_request(int sock_fd, request req, bool last_request_for_server) {
     string req_header = get_header(last_request_for_server, req);
-    char buffer[BUFFER_SIZE];
     ssize_t n = write(sock_fd, req_header.c_str(), strlen(req_header.c_str()));
+    if (n < 0) {
+        perror("error getting data from server");
+    }
+}
+
+void send_post_request(int sock_fd, request req, bool last_request_for_server) {
+    ifstream is;
+//    is.open (req.file_name, ios::binary);
+    is.open ("POST", ios::binary);
+    // get length of file:
+    is.seekg (0, ios::end);
+    long file_size = is.tellg();
+    is.seekg (0, ios::beg);
+
+    char* send_buffer = new char [file_size];
+    is.read (send_buffer, file_size);
+    is.close();
+
+    string content_type = get_file_type(req.file_name);
+    string req_header = post_header(last_request_for_server, req, file_size, content_type);
+
+    ssize_t n = write(sock_fd, req_header.c_str(), strlen(req_header.c_str()));
+
+    if (n < 0) {
+        perror("error sending data from server");
+    }
+
+    // send file data
+    n = write(sock_fd, send_buffer, file_size);
+
+
+    if (n < 0) {
+        perror("error sending data from server");
+    }
+
+}
+
+void process_get_request(int sock_fd, request req) {
+    char buffer[BUFFER_SIZE];
+    ssize_t n = 1;
     bzero(buffer, BUFFER_SIZE);
     bool headersEnded = false;
     string header;
@@ -143,28 +196,10 @@ void process_get_request(int sock_fd, request req, bool last_request_for_server)
     fclose(file_to_save);
 }
 
-void process_post_request(int sock_fd, request req, bool last_request_for_server) {
-    ifstream is;
-    is.open (req.file_name, ios::binary);
-    // get length of file:
-    is.seekg (0, ios::end);
-    long file_size = is.tellg();
-//    long file_size = 128;
-    is.seekg (0, ios::beg);
-
-    char* send_buffer = new char [file_size];
-    is.read (send_buffer, file_size);
-    is.close();
-
-    string content_type = get_file_type(req.file_name);
-    string req_header = post_header(last_request_for_server, req, file_size, content_type);
-
+void process_post_request(int sock_fd, request req) {
     char buffer[BUFFER_SIZE];
     bzero(buffer, BUFFER_SIZE);
-    ssize_t n = write(sock_fd, req_header.c_str(), strlen(req_header.c_str()));
-
-    // send file data
-    write(sock_fd, send_buffer, file_size);
+    ssize_t n = 1;
 
     bool headersEnded = false;
     string headers;
