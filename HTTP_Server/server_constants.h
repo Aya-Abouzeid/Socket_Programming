@@ -19,10 +19,4 @@
 const std::string REQUEST_HEADER_END = "\r\n\r\n";
 const int SERVER_BUFFER_SIZE = 1024;
 
-const std::map<std::string, std::string> FILE_EXTENSIONS = {{"image/jpeg", "jpg"},
-                                                       {"image/png", "png"},
-                                                       {"text/html", "html"},
-                                                       {"text/plain", "txt"},
-                                                       {"text/plain", ""}};
-
 #endif //HTTP_Server_CONSTANTS_H
