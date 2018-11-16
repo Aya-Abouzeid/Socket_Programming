@@ -8,7 +8,7 @@
 #define HTTP_CLIENT_CONSTANTS_H
 
 #include <string>
-
+#include <map>
 
 
 #define GET 0
@@ -19,6 +19,6 @@
 
 const int BUFFER_SIZE = 512;
 const std::string HEADER_END = "\r\n\r\n";
-
+const std::map<std::string, std::string> EXTENSIONS = {{"image/jpeg", "jpg"}, {"image/png", "png"}, {"text/html", "html"}, {"text/plain", "txt"}, {"text/plain", ""}};
 
 #endif //HTTP_CLIENT_CONSTANTS_H
