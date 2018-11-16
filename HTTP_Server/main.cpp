@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <HTTP_Server/server_constants.h>
 #include <cstring>
+#include <thread>
 
 using namespace std;
 
@@ -36,22 +37,32 @@ int main(int argc, char* argv[]) {
     server_info.IPaddress = INADDR_ANY;
     server_info.port_number = portno;
     int sockfd = get_socket_fd(server_info);
-    listen(sockfd, 1);
 
-    clilen = sizeof(cli_addr);
-    newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-    if (newsockfd < 0) {
-        cout << "ERROR on accept\n";
-        exit(1);
+    if(listen(sockfd, 1) < 0) {
+        perror("listen failed");
     }
 
-    handle_request(newsockfd);
 
-    close(newsockfd);
+    while(true) {
+
+        clilen = sizeof(cli_addr);
+        if((newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen)) < 0){
+            perror("accepting failed");
+            break;
+        }
+
+        if (newsockfd < 0) {
+            cout << "ERROR on accept\n";
+            exit(1);
+        }
+
+        thread handle_req(handle_request, newsockfd);
+        handle_req.detach();
+    }
+
     close(sockfd);
     return 0;
-
-
+    
 //}
 //    int sockfd, *newsockfd, port_number;
 //    struct sockaddr_in serv_addr, cli_addr;
