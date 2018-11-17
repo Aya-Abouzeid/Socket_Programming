@@ -44,10 +44,35 @@ string get_header(bool last_request_for_server, request req);
 
 string get_file_name(request req, map<string, string> headersMap);
 string get_file_type(string const file_name);
-void process_get_request(int sock_fd, request req);
-void process_post_request(int sock_fd, request req);
+char*  process_get_request(int sock_fd, request req, char* firstBufferPart);
+char*  process_post_request(int sock_fd, request req, char* firstBufferPart);
 void send_get_request(int sock_fd, request req, bool last_request_for_server);
 void send_post_request(int sock_fd, request req, bool last_request_for_server);
+char* append(const char *s, const char* c);
+
+void process_data(request req, char* buffer, long remaining_content_length, int n, FILE *file_to_save) {
+    int length = n < remaining_content_length ? n : remaining_content_length;
+
+    if (req.request_type == POST) {
+        string str_buffer = buffer;
+        cout << str_buffer.substr(0, length);
+    } else if (req.request_type == GET) {
+        fwrite((void *) buffer, sizeof(char), sizeof(char) * length, file_to_save);
+    }
+}
+
+void process_header(request req, char* buffer, long remaining_content_length, int n, FILE **file_to_save,
+        int start, map<string, string> headersMap) {
+    int length = n < remaining_content_length ? n : remaining_content_length;
+
+    if (req.request_type == POST) {
+        string str_buffer = buffer;
+        cout << str_buffer.substr(0, start + 4 + length);
+    } else if (req.request_type == GET) {
+        *file_to_save = fopen(get_file_name(req, headersMap).c_str(), "w+");
+        fwrite((void *) &buffer[start + 4], sizeof(char), sizeof(char) * length, *file_to_save);
+    }
+}
 
 void send_request(int sock_fd, vector<request> requests_info) {
     // send all requests
@@ -60,13 +85,77 @@ void send_request(int sock_fd, vector<request> requests_info) {
     }
 
 
-    // get all responses
+    // read all responses
+    char current_buffer[BUFFER_SIZE];
+
+    // have the previous buffer of the request
+    char* buffer = "";
+    int buffer_size = 0;
+    ssize_t n = 1;
+    bzero(current_buffer, BUFFER_SIZE);
+    FILE *file_to_save = nullptr;
+
     for (int i = 0; i < requests_info.size(); i++) {
         auto req = requests_info[i];
+        bool headersEnded = false;
+        long remaining_content_length = 1;
+        map<string, string> headersMap;
+        bool firstLoop = true;
+
+        // check no error and didn't reached content length size
+        while (n > 0 && (!headersEnded || remaining_content_length > 0)) {
+            bzero(current_buffer, BUFFER_SIZE);
+            string temp_received_data;
+
+            // check if there is a buffer already exist, use its data and don't get
+            // data from the socket buffer.
+            if (i != 0 && firstLoop && buffer_size != 0) {
+                firstLoop = false;
+                n = buffer_size;
+                memcpy(current_buffer, buffer, buffer_size);
+                buffer = "";
+            } else {
+                n = read(sock_fd, current_buffer, BUFFER_SIZE - 1);
+                temp_received_data.append(buffer);
+                if (n < 0) {
+                    perror("error getting data from server"); exit(1);
+                }
+            }
+
+            // contains the buffer for the request from start to current character.
+            temp_received_data.append(current_buffer);
+            unsigned long s = temp_received_data.find(HEADER_END);
+            if (headersEnded) { // appending body data to file
+                process_data(req, current_buffer, remaining_content_length, n, file_to_save);
+                remaining_content_length -= n;
+            } else if (s != string::npos) { // finish reading header data
+                headersEnded = true;
+                string rest_of_header = temp_received_data.substr(0, s);
+                buffer = append(buffer, rest_of_header.c_str());
+                headersMap = get_headers(buffer);
+                remaining_content_length = atol(headersMap.find("Content-Length").operator*().second.c_str());
+                int readed_body_length = n - s - 4 > remaining_content_length ? remaining_content_length : n - s - 4;
+                remaining_content_length -= (n - s - 4);
+                process_header(req, current_buffer, readed_body_length, n, &file_to_save, s, headersMap);
+            } else { // header not ended
+                buffer = append(buffer, current_buffer);
+            }
+
+        }
+
+        // only close the file if GET
         if (req.request_type == GET)
-            process_get_request(sock_fd, req);
-        else if (req.request_type == POST)
-            process_post_request(sock_fd, req);
+            fclose(file_to_save);
+
+        // pass current buffer data of next request to next request
+        if (remaining_content_length < 0) {
+            int new_request_buffer_size = remaining_content_length * -1;
+            buffer_size = new_request_buffer_size;
+            buffer = new char[new_request_buffer_size];
+            memcpy(buffer, current_buffer + n - new_request_buffer_size, new_request_buffer_size);
+        } else {
+            buffer = "";
+        }
     }
 
     close(sock_fd);
@@ -126,7 +215,7 @@ void send_get_request(int sock_fd, request req, bool last_request_for_server) {
 void send_post_request(int sock_fd, request req, bool last_request_for_server) {
     ifstream is;
     is.open (req.file_name, ios::binary);
-//    is.open ("image.jpg", ios::binary);
+//    is.open ("POST", ios::binary);
     // get length of file:
     is.seekg (0, ios::end);
     long file_size = is.tellg();
@@ -156,96 +245,11 @@ void send_post_request(int sock_fd, request req, bool last_request_for_server) {
 
 }
 
-void process_get_request(int sock_fd, request req) {
-    char buffer[BUFFER_SIZE];
-    ssize_t n = 1;
-    bzero(buffer, BUFFER_SIZE);
-    bool headersEnded = false;
-    string header;
-    FILE *file_to_save;
-    map<string, string> headersMap;
-    unsigned long content_length = 0;
-
-    // check no error and didn't reached content length size
-    while (n > 0 && (!headersEnded || content_length != atol(headersMap.find("Content-Length").operator*().second.c_str()))) {
-        n = read(sock_fd, buffer, BUFFER_SIZE - 1);
-        string temp_received_data = header + buffer;
-        unsigned long s = temp_received_data.find(HEADER_END);
-
-        if (headersEnded) { // appending body data to file
-            fwrite((void *) buffer, sizeof(char), sizeof(char) * n, file_to_save);
-            content_length += n;
-        } else if (s != string::npos) { // finish reading header data
-            headersEnded = true;
-            string rest_of_header = temp_received_data.substr(0, s);
-            header.append(rest_of_header);
-            headersMap = get_headers(header);
-            file_to_save = fopen(get_file_name(req, headersMap).c_str(),  "w+");
-            content_length = n - s - 4;
-            fwrite((void*) &buffer[s+4], sizeof(char), sizeof(char) * content_length, file_to_save);
-        } else { // header not ended
-            header.append(buffer);
-        }
-
-        bzero(buffer, BUFFER_SIZE);
-    }
-
-    if (n < 0) {
-        perror("error getting data from server");
-    }
-
-    fclose(file_to_save);
-}
-
-void process_post_request(int sock_fd, request req) {
-    char buffer[BUFFER_SIZE];
-    bzero(buffer, BUFFER_SIZE);
-    ssize_t n = 1;
-
-    bool headersEnded = false;
-    string headers;
-    map<string, string> headersMap;
-    unsigned long content_length = 0;
-
-    // check no error and didn't reached content length size
-    while (n > 0 && (!headersEnded || content_length != atol(headersMap.find("Content-Length").operator*().second.c_str()))) {
-        n = read(sock_fd, buffer, BUFFER_SIZE - 1);
-        string temp_received_data = headers + buffer;
-        unsigned long s = temp_received_data.find(HEADER_END);
-
-        if (headersEnded) { // appending body data to file
-            cout << buffer;
-            content_length += n;
-        } else if (s != string::npos) { // finish reading header data
-            headersEnded = true;
-            string rest_of_header = temp_received_data.substr(0, s);
-            headers.append(rest_of_header);
-            headersMap = get_headers(headers);
-            string body = temp_received_data.substr(s+4, temp_received_data.size()-1);
-            char * temp_body = new char [body.length()+1];
-            strcpy (temp_body, body.c_str());
-
-            cout << headers << endl << endl;
-
-            cout << temp_body;
-            content_length = strlen(temp_body);
-        } else { // header not ended
-            headers.append(buffer);
-        }
-
-        bzero(buffer, BUFFER_SIZE);
-    }
-
-    if (n < 0) {
-        perror("error getting data from server");
-    }
-}
-
 string get_file_type(string const file_name) {
     vector<string> tokens = split(file_name, '.');
 
     std::map<string, string>::const_iterator it;
-    string extension = "image/jpg";
+    string extension = "text/plan";
 
     for (it = EXTENSIONS.begin(); it != EXTENSIONS.end(); ++it) {
         if (it->second == tokens[tokens.size()-1]) {
@@ -273,4 +277,14 @@ string get_file_name(request req, map<string, string> headersMap) {
     }
 
     return name;
+}
+
+char* append(const char *s, const char* c) {
+    size_t lenS = strlen(s);
+    size_t lenC = strlen(c);
+    char buf[lenS+lenC];
+    memcpy(buf, s, lenS);
+    memcpy(buf + lenS, c, lenC);
+
+    return strdup(buf);
 }
