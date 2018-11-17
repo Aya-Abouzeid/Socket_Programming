@@ -22,7 +22,7 @@ map<string, string> get_headers_map(string header);
 string get_file_name(const server_request &request, map<string,string> headersMap);
 void handle_get_request(server_request request, int client_fd);
 void handle_post_request(server_request request, int client_fd, const char* body, string header);
-void save_content(string file_name, const char* content, string mode);
+void save_content(string file_name, const char *content, const ssize_t len, string mode);
 
 map<string, string> FILE_EXTENSIONS;
 map<string, string> CONTENT_TO_FILE_EXTENSIONS;
@@ -69,7 +69,7 @@ void handle_request(int client_fd) {
 }
 
 void handle_post_request(server_request request, int client_fd, const char* body, string header) {
-    const char *response = "HTTP/1.1 404 Not Found\r\n\r\n";
+    const char *response = "HTTP/1.1 200 OK\r\n\r\n";
     ssize_t n = write(client_fd, response, strlen(response));
     if (n < 0) {
         cout << "ERROR writing to socket\n";
@@ -79,7 +79,7 @@ void handle_post_request(server_request request, int client_fd, const char* body
     string file_name = get_file_name(request, headersMap);
     int content_length = atoi(headersMap["Content-Length"].c_str());
     content_length -= strlen(body);
-    save_content(file_name, body, "w+");
+    save_content(file_name, body, strlen(body), "w+");
     while (content_length > 0) {
         char buffer[SERVER_BUFFER_SIZE];
         bzero(buffer, SERVER_BUFFER_SIZE);
@@ -88,14 +88,14 @@ void handle_post_request(server_request request, int client_fd, const char* body
             cout << "ERROR reading from socket\n";
             return;
         }
-        save_content(file_name, buffer, "a");
+        save_content(file_name, buffer, n, "a");
         content_length -= strlen(buffer);
     }
 }
 
-void save_content(string file_name, const char* content, string mode) {
+void save_content(string file_name, const char *content, const ssize_t len, string mode) {
     FILE *file_to_save = fopen(file_name.c_str(), mode.c_str());
-    fwrite((void*) content, sizeof(char), sizeof(char) * strlen(content), file_to_save);
+    fwrite((void*) content, sizeof(char), sizeof(char) * ((int) len), file_to_save);
     fclose(file_to_save);
 }
 
