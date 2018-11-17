@@ -21,7 +21,7 @@ using namespace std;
 
 int main(int argc, char* argv[]) {
     int newsockfd;
-    u_short portno;
+    u_short portno = 4545;
     socklen_t clilen;
     struct sockaddr_in cli_addr;
     ssize_t n;
@@ -31,7 +31,12 @@ int main(int argc, char* argv[]) {
 //    }
 //    portno = atoi(argv[1]);
     portno = 4442;
+    if (argc < 2) {
+        fprintf(stderr,"ERROR, no port provided\n");
+        exit(1);
+    }
 
+    portno = atoi(argv[1]);
     struct server server_info;
     server_info.IPaddress = INADDR_ANY;
     server_info.port_number = portno;
