@@ -14,7 +14,6 @@
 #include "socket_manager.h"
 #include "request_handler.h"
 #include <unistd.h>
-#include <server_constants.h>
 #include <cstring>
 #include <thread>
 
@@ -38,7 +37,7 @@ int main(int argc, char* argv[]) {
     server_info.port_number = portno;
     int sockfd = get_socket_fd(server_info);
 
-    if(listen(sockfd, 1) < 0) {
+    if (listen(sockfd, 1) < 0) {
         perror("listen failed");
     }
 
