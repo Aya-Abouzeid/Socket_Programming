@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 //        exit(1);
 //    }
 //    portno = atoi(argv[1]);
-    portno = 4444;
+    portno = 4442;
 
     struct server server_info;
     server_info.IPaddress = INADDR_ANY;

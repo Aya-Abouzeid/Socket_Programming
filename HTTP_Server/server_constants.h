@@ -17,6 +17,6 @@
 #define CONTENT_BODY "Content-Body"
 
 const std::string REQUEST_HEADER_END = "\r\n\r\n";
-const int SERVER_BUFFER_SIZE = 500;
+const int SERVER_BUFFER_SIZE = 15;
 
 #endif //HTTP_Server_CONSTANTS_H
