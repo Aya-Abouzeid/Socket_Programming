@@ -125,14 +125,15 @@ void send_get_request(int sock_fd, request req, bool last_request_for_server) {
 
 void send_post_request(int sock_fd, request req, bool last_request_for_server) {
     ifstream is;
-//    is.open (req.file_name, ios::binary);
-    is.open ("POST", ios::binary);
+    is.open (req.file_name, ios::binary);
+//    is.open ("image.jpg", ios::binary);
     // get length of file:
     is.seekg (0, ios::end);
     long file_size = is.tellg();
     is.seekg (0, ios::beg);
 
     char* send_buffer = new char [file_size];
+    string xx = send_buffer;
     is.read (send_buffer, file_size);
     is.close();
 
@@ -244,7 +245,7 @@ string get_file_type(string const file_name) {
     vector<string> tokens = split(file_name, '.');
 
     std::map<string, string>::const_iterator it;
-    string extension = "text/plain";
+    string extension = "image/jpg";
 
     for (it = EXTENSIONS.begin(); it != EXTENSIONS.end(); ++it) {
         if (it->second == tokens[tokens.size()-1]) {
