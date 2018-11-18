@@ -33,6 +33,7 @@ char* append(const char *s, const char* c, long lenS) {
 }
 
 void handle_request(int client_fd) {
+    bool connection_close = false;
     char buffer[SERVER_BUFFER_SIZE];
     unsigned long s = string::npos;
     ssize_t n;
@@ -42,6 +43,7 @@ void handle_request(int client_fd) {
     do {
         bzero(buffer, SERVER_BUFFER_SIZE);
         n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
+        if (n == 0) return;
         if (n < 0) {
             cout << "ERROR reading from socket\n";
             exit(1);
@@ -52,10 +54,10 @@ void handle_request(int client_fd) {
         s = totalString.find(REQUEST_HEADER_END);
     } while (s == string::npos);
     while (true) {
-        int loops = 0;
-        while (s == string::npos && loops < 10000) {
+        while (s == string::npos) {
             bzero(buffer, SERVER_BUFFER_SIZE);
             n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
+            if (n == 0) return;
             if (n < 0) {
                 cout << "ERROR reading from socket\n";
                 exit(1);
@@ -64,13 +66,13 @@ void handle_request(int client_fd) {
             read_in_buffer += n;
             totalString = total;
             s = totalString.find(REQUEST_HEADER_END);
-            loops++;
         }
 
         string header = totalString.substr(0, s);
         char* body = &total[s + 4];
         struct server_request req = extract_request_params_from_header(header);
         map<string, string> headersMap = get_headers_map(header);
+        if (headersMap["Connection"] == "close" || headersMap["Connection"] == "close\\r") connection_close = true;
         if (req.request_type == GET) {
             read_in_buffer -= (header.length() + 4);
             // handle get from header only and continue reading other requests
@@ -106,6 +108,12 @@ void handle_request(int client_fd) {
                     cout << "ERROR writing to socket\n";
                     exit(1);
                 }
+            }
+            if (connection_close) {
+                while (n > 0) {
+                    n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
+                }
+                return;
             }
             total = body;
             totalString = total;
@@ -159,6 +167,7 @@ void handle_request(int client_fd) {
                 // read again
                 bzero(buffer, SERVER_BUFFER_SIZE);
                 n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
+                if (n == 0) return;
                 if (n < 0) {
                     cout << "ERROR reading from socket\n";
                     exit(1);
@@ -176,6 +185,12 @@ void handle_request(int client_fd) {
                 FILE *file_to_save = fopen(file_name.c_str(), "a");
                 fwrite((void*) (total), sizeof(char), sizeof(char) * (content_length), file_to_save);
                 fclose(file_to_save);
+            }
+            if (connection_close) {
+                while (n > 0) {
+                    n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
+                }
+                return;
             }
             char* newTotal = new char();
             read_in_buffer -= content_length;
