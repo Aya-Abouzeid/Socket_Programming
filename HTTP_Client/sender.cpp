@@ -214,7 +214,7 @@ void send_get_request(int sock_fd, request req, bool last_request_for_server) {
 
 void send_post_request(int sock_fd, request req, bool last_request_for_server) {
     ifstream is;
-    is.open (req.file_name, ios::binary);
+    is.open (req.file_name.substr(1), ios::binary);
 //    is.open ("POST", ios::binary);
     // get length of file:
     is.seekg (0, ios::end);

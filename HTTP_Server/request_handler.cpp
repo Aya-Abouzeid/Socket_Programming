@@ -20,6 +20,12 @@ using namespace std;
 void initialize_file_extensions_if_needed();
 map<string, string> get_headers_map(string header);
 
+string get_file_name(const server_request &req, map<string, string> &headersMap);
+
+string get_response_headers(const string &file_name, long len);
+
+void get_new_total(int content_length, char *&total, string &totalString, long &read_in_buffer);
+
 map<string, string> FILE_EXTENSIONS;
 map<string, string> CONTENT_TO_FILE_EXTENSIONS;
 
@@ -28,7 +34,6 @@ char* append(const char *s, const char* c, long lenS) {
     char buf[lenS + lenC];
     memcpy(buf, s, lenS);
     memcpy(buf + lenS, c, lenC);
-
     return strdup(buf);
 }
 
@@ -95,14 +100,8 @@ void handle_request(int client_fd) {
                 inFile.read(file_body, len);
                 inFile.close();
 
-                vector<string> tokens = split(file_name, '.');
-                if (tokens.size() == 1) tokens.emplace_back("");
-                initialize_file_extensions_if_needed();
-                string content_type = FILE_EXTENSIONS[tokens[1]];
-
-                string headers = "HTTP/1.1 200 OK\r\nContent-Type: " + content_type
-                                 + "\r\nContent-Length: " + to_string(len) + "\r\n\r\n";
-                ssize_t n = write(client_fd, headers.c_str(), strlen(headers.c_str()));
+                string headers = get_response_headers(file_name, len);
+                n = write(client_fd, headers.c_str(), strlen(headers.c_str()));
                 write(client_fd, file_body, (int) len);
                 if (n < 0) {
                     cout << "ERROR writing to socket\n";
@@ -130,34 +129,17 @@ void handle_request(int client_fd) {
             int content_length = atoi(headersMap["Content-Length"].c_str());
 
             // get file name
-            string file_name = req.file_name.substr(1);
-            vector<string> tokens = split(file_name, '/');
-            string name = tokens[tokens.size()-1];
-            unsigned long s3 = name.find('.');
-            if (s3 == string::npos) { // didn't find extension in the file name
-                initialize_file_extensions_if_needed();
-                string content_type = headersMap["Content-Type"];
-                content_type = content_type.substr(0, content_type.size() - 1);
-                name += "." + CONTENT_TO_FILE_EXTENSIONS[content_type];
-            }
-            file_name = "";
-            for (int i = 0; i < tokens.size() - 1; i++) {
-                file_name += tokens[i] + '/';
-            }
-            file_name += name;
+            string file_name = get_file_name(req, headersMap);
 
             bool first_time_write = true;
             total = body;
+            FILE *file_to_save = fopen(file_name.c_str(), "w+");
             while ((read_in_buffer - (header.length() + 4) <= content_length) || (!first_time_write && read_in_buffer <= content_length)) {
                 // request not ended yet
                 if (first_time_write) {
-                    FILE *file_to_save = fopen(file_name.c_str(), "w+");
                     fwrite((void*) (total), sizeof(char), sizeof(char) * ((int) read_in_buffer - (header.length() + 4)), file_to_save);
-                    fclose(file_to_save);
                 } else {
-                    FILE *file_to_save = fopen(file_name.c_str(), "a");
                     fwrite((void*) (total), sizeof(char), sizeof(char) * ((int) read_in_buffer), file_to_save);
-                    fclose(file_to_save);
                 }
                 if (first_time_write) {
                     content_length -= read_in_buffer - (header.length() + 4);
@@ -177,31 +159,57 @@ void handle_request(int client_fd) {
                 first_time_write = false;
             }
             // total > content_length
-            if (first_time_write) {
-                FILE *file_to_save = fopen(file_name.c_str(), "w+");
-                fwrite((void*) (total), sizeof(char), sizeof(char) * (content_length), file_to_save);
-                fclose(file_to_save);
-            } else {
-                FILE *file_to_save = fopen(file_name.c_str(), "a");
-                fwrite((void*) (total), sizeof(char), sizeof(char) * (content_length), file_to_save);
-                fclose(file_to_save);
-            }
+            fwrite((void*) (total), sizeof(char), sizeof(char) * (content_length), file_to_save);
+            fclose(file_to_save);
             if (connection_close) {
                 while (n > 0) {
                     n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
                 }
                 return;
             }
-            char* newTotal = new char();
-            read_in_buffer -= content_length;
-            char* temp = &total[content_length];
-            memcpy(newTotal, temp, read_in_buffer);
-            total = newTotal;
-            total[read_in_buffer] = '\0';
-            totalString = temp;
+            get_new_total(content_length, total, totalString, read_in_buffer);
             s = totalString.find(REQUEST_HEADER_END);
         }
     }
+}
+
+void get_new_total(int content_length, char *&total, string &totalString, long &read_in_buffer) {
+    char* newTotal = new char();
+    read_in_buffer -= content_length;
+    char* temp = &total[content_length];
+    memcpy(newTotal, temp, read_in_buffer);
+    total = newTotal;
+    total[read_in_buffer] = '\0';
+    totalString = temp;
+}
+
+string get_response_headers(const string &file_name, long len) {
+    vector<string> tokens = split(file_name, '.');
+    if (tokens.size() == 1) tokens.emplace_back("");
+    initialize_file_extensions_if_needed();
+    string content_type = FILE_EXTENSIONS[tokens[1]];
+    string headers = "HTTP/1.1 200 OK\r\nContent-Type: " + content_type
+                                 + "\r\nContent-Length: " + to_string(len) + "\r\n\r\n";
+    return headers;
+}
+
+string get_file_name(const server_request &req, map<string, string> &headersMap) {
+    string file_name = req.file_name.substr(1);
+    vector<string> tokens = split(file_name, '/');
+    string name = tokens[tokens.size()-1];
+    unsigned long s3 = name.find('.');
+    if (s3 == string::npos) { // didn't find extension in the file name
+        initialize_file_extensions_if_needed();
+        string content_type = headersMap["Content-Type"];
+        content_type = content_type.substr(0, content_type.size() - 1);
+        name += "." + CONTENT_TO_FILE_EXTENSIONS[content_type];
+    }
+    file_name = "";
+    for (int i = 0; i < tokens.size() - 1; i++) {
+        file_name += tokens[i] + '/';
+    }
+    file_name += name;
+    return file_name;
 }
 
 map<string, string> get_headers_map(string header) {
