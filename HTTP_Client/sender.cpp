@@ -61,16 +61,19 @@ void process_data(request req, char* buffer, long remaining_content_length, int 
     }
 }
 
-void process_header(request req, char* buffer, long remaining_content_length, int n, FILE **file_to_save,
-        int start, map<string, string> headersMap) {
-    int length = n < remaining_content_length ? n : remaining_content_length;
-
-    if (req.request_type == POST) {
-        string str_buffer = buffer;
-        cout << str_buffer.substr(0, start + 4 + length);
-    } else if (req.request_type == GET) {
-        *file_to_save = fopen(get_file_name(req, headersMap).c_str(), "w+");
-        fwrite((void *) &buffer[start + 4], sizeof(char), sizeof(char) * length, *file_to_save);
+void process_header(request req, char *buffer, long remaining_content_length, int n, FILE **file_to_save, int start,
+                    map<string, string> headersMap, bool file_not_found) {
+    if (!file_not_found) {
+        int length = n < remaining_content_length ? n : remaining_content_length;
+        if (req.request_type == POST) {
+            string str_buffer = buffer;
+            cout << str_buffer.substr(0, start + 4 + length);
+        } else if (req.request_type == GET) {
+            *file_to_save = fopen(get_file_name(req, headersMap).c_str(), "w+");
+            fwrite((void *) &buffer[start + 4], sizeof(char), sizeof(char) * length, *file_to_save);
+        }
+    } else {
+        cout << "FILE NOT FOUND" << endl;
     }
 }
 
@@ -136,15 +139,15 @@ void send_request(int sock_fd, vector<request> requests_info) {
                 remaining_content_length = atol(headersMap.find("Content-Length").operator*().second.c_str());
                 int readed_body_length = n - s - 4 > remaining_content_length ? remaining_content_length : n - s - 4;
                 remaining_content_length -= (n - s - 4);
-                process_header(req, current_buffer, readed_body_length, n, &file_to_save, s, headersMap);
+                process_header(req, current_buffer, readed_body_length, n, &file_to_save, s, headersMap,
+                               rest_of_header == "HTTP/1.1 404 Not Found");
             } else { // header not ended
                 buffer = append(buffer, current_buffer);
             }
-
         }
 
         // only close the file if GET
-        if (req.request_type == GET)
+        if (req.request_type == GET && file_to_save != nullptr)
             fclose(file_to_save);
 
         // pass current buffer data of next request to next request
