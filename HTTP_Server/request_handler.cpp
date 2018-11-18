@@ -36,145 +36,131 @@ char* append(const char *s, const char* c, long lenS, long lenC) {
     return strdup(buf);
 }
 
-void handle_request(int client_fd) {
-    bool connection_close = false;
-    char buffer[SERVER_BUFFER_SIZE];
-    unsigned long s = string::npos;
-    ssize_t n;
-    char* total = new char();
-    string totalString;
-    long read_in_buffer = 0;
-    do {
-        bzero(buffer, SERVER_BUFFER_SIZE);
-        n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
-        if (n == 0) return;
-        if (n < 0) {
-            cout << "ERROR reading from socket\n";
-            exit(1);
-        }
-        total = append(total, buffer, read_in_buffer, n + 1);
-        read_in_buffer += n;
-        totalString = total;
-        s = totalString.find(REQUEST_HEADER_END);
-    } while (s == string::npos);
-    while (true) {
-        while (s == string::npos) {
-            bzero(buffer, SERVER_BUFFER_SIZE);
-            n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
-            if (n == 0) return;
-            if (n < 0) {
-                cout << "ERROR reading from socket\n";
-                exit(1);
-            }
-            total = append(total, buffer, read_in_buffer, n + 1);
-            read_in_buffer += n;
-            totalString = total;
-            s = totalString.find(REQUEST_HEADER_END);
-        }
+bool last_request(map<string, string> headersMap) {
+    return headersMap["Connection"] == "close" || headersMap["Connection"] == "close\\r";
+}
 
-        string header = totalString.substr(0, s);
-        char* body = &total[s + 4];
-        struct server_request req = extract_request_params_from_header(header);
-        map<string, string> headersMap = get_headers_map(header);
-        if (headersMap["Connection"] == "close" || headersMap["Connection"] == "close\\r") connection_close = true;
-        if (req.request_type == GET) {
-            read_in_buffer -= (header.length() + 4);
-            // handle get from header only and continue reading other requests
-            string file_name = req.file_name.substr(1);
-            ifstream inFile;
-            inFile.open(file_name, ios::binary);
-            if (!inFile) {
-                inFile.close();
-                const char *response = "HTTP/1.1 404 Not Found\r\n\r\n";
-                ssize_t n = write(client_fd, response, strlen(response));
-                if (n < 0) {
-                    cout << "ERROR writing to socket\n";
-                    exit(1);
-                }
-            } else {
-                inFile.seekg(0, ios::end);
-                long len = inFile.tellg();
-                inFile.seekg(0, ios::beg);
-                char *file_body = new char[len];
-                inFile.read(file_body, len);
-                inFile.close();
+void process_request_from_header(struct server_request req, char* buffer,  long remaining_content_length, int n, int start,
+        FILE **file_to_save, map<string, string> header_map) {
+    int length = n < remaining_content_length ? n : remaining_content_length;
 
-                string headers = get_response_headers(file_name, len);
-                n = write(client_fd, headers.c_str(), strlen(headers.c_str()));
-                write(client_fd, file_body, (int) len);
-                if (n < 0) {
-                    cout << "ERROR writing to socket\n";
-                    exit(1);
-                }
-            }
-            if (connection_close) {
-                while (n > 0) {
-                    n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
-                }
-                return;
-            }
-            total = body;
-            totalString = total;
-            s = totalString.find(REQUEST_HEADER_END);
-        } else if (req.request_type == POST) {
-            // keep reading from socket till reaching content length
-            // then move to next requests
-            const char *response = "HTTP/1.1 200 OK\r\n\r\n";
-            n = write(client_fd, response, strlen(response));
+    if (req.request_type == GET) {
+        // process all GET
+        string file_name = req.file_name.substr(1);
+        ifstream inFile;
+        inFile.open(file_name, ios::binary);
+        if (!inFile) {
+            inFile.close();
+            const char *response = "HTTP/1.1 404 Not Found\r\n\r\n";
+            ssize_t n = write(req.client_fd, response, strlen(response));
             if (n < 0) {
                 cout << "ERROR writing to socket\n";
                 exit(1);
             }
-            int content_length = atoi(headersMap["Content-Length"].c_str());
+        } else {
+            inFile.seekg(0, ios::end);
+            long len = inFile.tellg();
+            inFile.seekg(0, ios::beg);
+            char *file_body = new char[len];
+            inFile.read(file_body, len);
+            inFile.close();
 
-            // get file name
-            string file_name = get_file_name(req, headersMap);
-
-            bool first_time_write = true;
-            total = body;
-            FILE *file_to_save = fopen(file_name.c_str(), "w+");
-            while ((read_in_buffer - (header.length() + 4) <= content_length) || (!first_time_write && read_in_buffer <= content_length)) {
-                // request not ended yet
-                if (first_time_write) {
-                    fwrite((void*) (total), sizeof(char), sizeof(char) * ((int) read_in_buffer - (header.length() + 4)), file_to_save);
-                } else {
-                    fwrite((void*) (total), sizeof(char), sizeof(char) * ((int) read_in_buffer), file_to_save);
-                }
-                if (first_time_write) {
-                    content_length -= read_in_buffer - (header.length() + 4);
-                } else {
-                    content_length -= read_in_buffer;
-                }
-                // read again
-                bzero(buffer, SERVER_BUFFER_SIZE);
-                n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
-                if (n == 0) {
-                    fclose(file_to_save);
-                    return;
-                }
-                if (n < 0) {
-                    fclose(file_to_save);
-                    cout << "ERROR reading from socket\n";
-                    exit(1);
-                }
-                read_in_buffer = n;
-                total = buffer;
-                first_time_write = false;
+            string headers = get_response_headers(file_name, len);
+            n = write(req.client_fd, headers.c_str(), strlen(headers.c_str()));
+            write(req.client_fd, file_body, (int) len);
+            if (n < 0) {
+                cout << "ERROR writing to socket\n";
+                exit(1);
             }
-            // total > content_length
-            fwrite((void*) (total), sizeof(char), sizeof(char) * (content_length), file_to_save);
-            fclose(file_to_save);
-            if (connection_close) {
-                while (n > 0) {
-                    n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
-                }
-                return;
-            }
-            get_new_total(content_length, total, totalString, read_in_buffer);
-            s = totalString.find(REQUEST_HEADER_END);
         }
+    } else if (req.request_type == POST) {
+        const char *response = "HTTP/1.1 200 OK\r\n\r\n";
+        write(req.client_fd, response, strlen(response));
+        *file_to_save = fopen(get_file_name(req, header_map).c_str(), "w+");
+        fwrite((void *) &buffer[start], sizeof(char), sizeof(char) * length, *file_to_save);
     }
 }
+
+void handle_request(int client_fd) {
+    cout << "New connection created " << client_fd << ".\n";
+
+    bool end_connection = false;
+    bool connection_close = false; // marked true when request header contains Connection: close
+    char current_buffer[SERVER_BUFFER_SIZE];
+    ssize_t n = 1;
+    char* buffer = "";
+    long buffer_size = 0;
+    bool post_request = false;
+    long remaining_content_length = 0;
+    struct server_request req;
+    FILE *file_to_save = nullptr;
+    bool has_previous_data = false;
+    do {
+        bzero(current_buffer, SERVER_BUFFER_SIZE);
+        if (has_previous_data) {
+            has_previous_data = false;
+            n = buffer_size;
+            memcpy(current_buffer, buffer, buffer_size);
+            buffer = "";
+            buffer_size = 0;
+        } else {
+            n = read(client_fd, current_buffer, SERVER_BUFFER_SIZE - 1);
+        }
+
+        if (n <= 0) {
+            if (n < 0) cerr << "Error with reading data from socket\n";
+            end_connection = true;
+        } else {
+            buffer = append(buffer, current_buffer, buffer_size, n);
+            string current_data_as_string = buffer;
+            unsigned long s = current_data_as_string.find(REQUEST_HEADER_END);
+            if (post_request) {
+                int length = n < remaining_content_length ? n : remaining_content_length;
+                fwrite((void *) current_buffer, sizeof(char), sizeof(char) * length, file_to_save);
+                remaining_content_length -= n;
+            } else if (s != string::npos) { // finish reading header data
+                string header = current_data_as_string.substr(0, s);
+                buffer = "";
+                map<string, string> header_map = get_headers_map(header);
+                if (last_request(header_map)) connection_close = true;
+                req = extract_request_params_from_header(header);
+                req.client_fd = client_fd;
+                // TODO file hirerachy
+                remaining_content_length = atol(header_map["Content-Length"].c_str());
+                int readed_body_length = n - s - 4 > remaining_content_length ? remaining_content_length : n - s - 4;
+                remaining_content_length -= (n - s - 4);
+                process_request_from_header(req, current_buffer, readed_body_length, n, s+4, &file_to_save, header_map);
+                if (req.request_type == POST && remaining_content_length != 0) post_request = true;
+            } else { // header not ended
+                buffer = append(buffer, current_buffer, buffer_size, n);
+                buffer_size += n ;
+            }
+
+            if (remaining_content_length == 0 && req.request_type == POST) fclose(file_to_save);
+            else if (remaining_content_length < 0) {
+                // copy new request values to buffer
+                int new_request_buffer_size = remaining_content_length * -1;
+                buffer_size = new_request_buffer_size;
+                buffer = new char[new_request_buffer_size];
+                memcpy(buffer, current_buffer + n - new_request_buffer_size, new_request_buffer_size);
+
+                // resetting all parameters
+                if (req.request_type == POST) fclose(file_to_save);
+                post_request = false;
+                remaining_content_length = 0;
+
+                has_previous_data = true;
+            }
+
+            if (connection_close && (req.request_type == GET || remaining_content_length == 0)) end_connection = true;
+        }
+
+    } while (!end_connection);
+
+    close(client_fd);
+    cout << "Closing connection " << client_fd << ".\n";
+}
+
 
 void get_new_total(int content_length, char *&total, string &totalString, long &read_in_buffer) {
     char* newTotal = new char();
