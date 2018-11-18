@@ -149,8 +149,12 @@ void handle_request(int client_fd) {
                 // read again
                 bzero(buffer, SERVER_BUFFER_SIZE);
                 n = read(client_fd, buffer, SERVER_BUFFER_SIZE - 1);
-                if (n == 0) return;
+                if (n == 0) {
+                    fclose(file_to_save);
+                    return;
+                }
                 if (n < 0) {
+                    fclose(file_to_save);
                     cout << "ERROR reading from socket\n";
                     exit(1);
                 }
