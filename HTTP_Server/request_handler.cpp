@@ -29,8 +29,7 @@ void get_new_total(int content_length, char *&total, string &totalString, long &
 map<string, string> FILE_EXTENSIONS;
 map<string, string> CONTENT_TO_FILE_EXTENSIONS;
 
-char* append(const char *s, const char* c, long lenS) {
-    size_t lenC = SERVER_BUFFER_SIZE;
+char* append(const char *s, const char* c, long lenS, long lenC) {
     char buf[lenS + lenC];
     memcpy(buf, s, lenS);
     memcpy(buf + lenS, c, lenC);
@@ -53,7 +52,7 @@ void handle_request(int client_fd) {
             cout << "ERROR reading from socket\n";
             exit(1);
         }
-        total = append(total, buffer, read_in_buffer);
+        total = append(total, buffer, read_in_buffer, n + 1);
         read_in_buffer += n;
         totalString = total;
         s = totalString.find(REQUEST_HEADER_END);
@@ -67,7 +66,7 @@ void handle_request(int client_fd) {
                 cout << "ERROR reading from socket\n";
                 exit(1);
             }
-            total = append(total, buffer, read_in_buffer);
+            total = append(total, buffer, read_in_buffer, n + 1);
             read_in_buffer += n;
             totalString = total;
             s = totalString.find(REQUEST_HEADER_END);
