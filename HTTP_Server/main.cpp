@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 //        exit(1);
 //    }
 //    portno = atoi(argv[1]);
-    portno = 4444;
+    portno = 4445;
 //    if (argc < 2) {
 //        fprintf(stderr,"ERROR, no port provided\n");
 //        exit(1);
@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
         perror("listen failed");
     }
 
-
+    cout << "Server running on port " << portno << " , waiting for new requests .......\n";
     while(true) {
 
         clilen = sizeof(cli_addr);
@@ -59,6 +59,13 @@ int main(int argc, char* argv[]) {
             cout << "ERROR on accept\n";
             exit(1);
         }
+
+        struct timeval timeout;
+        timeout.tv_sec = 60;
+        timeout.tv_usec = 0;
+
+        if (setsockopt(newsockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof timeout) < 0)
+            cerr << "setsockopt failed\n";
 
         thread handle_req(handle_request, newsockfd);
         handle_req.detach();

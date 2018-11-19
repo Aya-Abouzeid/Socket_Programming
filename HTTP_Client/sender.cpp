@@ -44,8 +44,6 @@ string get_header(bool last_request_for_server, request req);
 
 string get_file_name(request req, map<string, string> headersMap);
 string get_file_type(string const file_name);
-char*  process_get_request(int sock_fd, request req, char* firstBufferPart);
-char*  process_post_request(int sock_fd, request req, char* firstBufferPart);
 void send_get_request(int sock_fd, request req, bool last_request_for_server);
 void send_post_request(int sock_fd, request req, bool last_request_for_server);
 char* append(const char *s, const char* c);
@@ -61,7 +59,7 @@ void process_data(request req, char* buffer, long remaining_content_length, int 
     }
 }
 
-void process_header(request req, char *buffer, long remaining_content_length, int n, FILE **file_to_save, int start,
+void process_header(request req, const char *buffer, long remaining_content_length, int n, FILE **file_to_save, int start,
                     map<string, string> headersMap, bool file_not_found) {
     if (!file_not_found) {
         int length = n < remaining_content_length ? n : remaining_content_length;
@@ -117,6 +115,7 @@ void send_request(int sock_fd, vector<request> requests_info) {
                 n = buffer_size;
                 memcpy(current_buffer, buffer, buffer_size);
                 buffer = "";
+                buffer_size = 0;
             } else {
                 n = read(sock_fd, current_buffer, BUFFER_SIZE - 1);
                 temp_received_data.append(buffer);
@@ -134,21 +133,28 @@ void send_request(int sock_fd, vector<request> requests_info) {
             } else if (s != string::npos) { // finish reading header data
                 headersEnded = true;
                 string rest_of_header = temp_received_data.substr(0, s);
-                buffer = append(buffer, rest_of_header.c_str());
-                headersMap = get_headers(buffer);
-                remaining_content_length = atol(headersMap.find("Content-Length").operator*().second.c_str());
-                int readed_body_length = n - s - 4 > remaining_content_length ? remaining_content_length : n - s - 4;
-                remaining_content_length -= (n - s - 4);
-                process_header(req, current_buffer, readed_body_length, n, &file_to_save, s, headersMap,
-                               rest_of_header == "HTTP/1.1 404 Not Found");
+
+                bool file_found = rest_of_header != "HTTP/1.1 404 Not Found";
+                if (file_found) {
+                    headersMap = get_headers(rest_of_header);
+                    remaining_content_length = req.request_type == GET ? atol(headersMap.find("Content-Length").operator*().second.c_str()) : 0;
+                }
+
+                int remaining_buffer = temp_received_data.size() - s - 4;
+                int readed_body_length =  remaining_buffer > remaining_content_length ? remaining_content_length : remaining_buffer;
+                remaining_content_length -= remaining_buffer;
+                process_header(req, current_buffer, readed_body_length, remaining_buffer, &file_to_save, s, headersMap, !file_found);
             } else { // header not ended
                 buffer = append(buffer, current_buffer);
+                buffer_size += n;
             }
         }
 
         // only close the file if GET
-        if (req.request_type == GET && file_to_save != nullptr)
+        if (req.request_type == GET && file_to_save != nullptr) {
             fclose(file_to_save);
+            file_to_save = nullptr;
+        }
 
         // pass current buffer data of next request to next request
         if (remaining_content_length < 0) {
@@ -158,6 +164,7 @@ void send_request(int sock_fd, vector<request> requests_info) {
             memcpy(buffer, current_buffer + n - new_request_buffer_size, new_request_buffer_size);
         } else {
             buffer = "";
+            buffer_size = 0;
         }
     }
 
@@ -218,7 +225,6 @@ void send_get_request(int sock_fd, request req, bool last_request_for_server) {
 void send_post_request(int sock_fd, request req, bool last_request_for_server) {
     ifstream is;
     is.open (req.file_name.substr(1), ios::binary);
-//    is.open ("POST", ios::binary);
     // get length of file:
     is.seekg (0, ios::end);
     long file_size = is.tellg();
@@ -285,9 +291,9 @@ string get_file_name(request req, map<string, string> headersMap) {
 char* append(const char *s, const char* c) {
     size_t lenS = strlen(s);
     size_t lenC = strlen(c);
-    char buf[lenS+lenC];
+    char buf[lenS+lenC+1];
     memcpy(buf, s, lenS);
     memcpy(buf + lenS, c, lenC);
-
+    buf[lenS+lenC] = '\0';
     return strdup(buf);
 }

@@ -29,10 +29,12 @@ void get_new_total(int content_length, char *&total, string &totalString, long &
 map<string, string> FILE_EXTENSIONS;
 map<string, string> CONTENT_TO_FILE_EXTENSIONS;
 
-char* append(const char *s, const char* c, long lenS, long lenC) {
+char* append(char *s, const char* c, long lenS, long lenC) {
     char buf[lenS + lenC];
     memcpy(buf, s, lenS);
     memcpy(buf + lenS, c, lenC);
+    if (lenS != 0)
+        free(s);
     return strdup(buf);
 }
 
@@ -66,7 +68,7 @@ void process_request_from_header(struct server_request req, char* buffer,  long 
             inFile.close();
 
             string headers = get_response_headers(file_name, len);
-            n = write(req.client_fd, headers.c_str(), strlen(headers.c_str()));
+            n = write(req.client_fd, headers.c_str(), headers.length());
             write(req.client_fd, file_body, (int) len);
             if (n < 0) {
                 cout << "ERROR writing to socket\n";
@@ -88,7 +90,8 @@ void handle_request(int client_fd) {
     bool connection_close = false; // marked true when request header contains Connection: close
     char current_buffer[SERVER_BUFFER_SIZE];
     ssize_t n = 1;
-    char* buffer = "";
+    char* buffer = (char*) malloc(sizeof(char));
+    buffer[0] = ' ';
     long buffer_size = 0;
     bool post_request = false;
     long remaining_content_length = 0;
@@ -111,7 +114,7 @@ void handle_request(int client_fd) {
             if (n < 0) cerr << "Error with reading data from socket\n";
             end_connection = true;
         } else {
-            buffer = append(buffer, current_buffer, buffer_size, n);
+            buffer = append(buffer, current_buffer, buffer_size, n+1);
             string current_data_as_string = buffer;
             unsigned long s = current_data_as_string.find(REQUEST_HEADER_END);
             if (post_request) {
@@ -127,16 +130,17 @@ void handle_request(int client_fd) {
                 req.client_fd = client_fd;
                 // TODO file hirerachy
                 remaining_content_length = atol(header_map["Content-Length"].c_str());
-                int readed_body_length = n - s - 4 > remaining_content_length ? remaining_content_length : n - s - 4;
-                remaining_content_length -= (n - s - 4);
-                process_request_from_header(req, current_buffer, readed_body_length, n, s+4, &file_to_save, header_map);
+                long tmp_size = current_data_as_string.size();
+                int readed_body_length = tmp_size - s - 4 > remaining_content_length ? remaining_content_length : tmp_size - s - 4;
+                remaining_content_length -= (tmp_size - s - 4);
+                process_request_from_header(req, current_buffer, readed_body_length, tmp_size - s - 4, s+4, &file_to_save, header_map);
                 if (req.request_type == POST && remaining_content_length != 0) post_request = true;
             } else { // header not ended
-                buffer = append(buffer, current_buffer, buffer_size, n);
+                buffer = append(buffer, current_buffer, buffer_size, n+1);
                 buffer_size += n ;
             }
 
-            if (remaining_content_length == 0 && req.request_type == POST) fclose(file_to_save);
+            if (remaining_content_length == 0 && req.request_type == POST && file_to_save != nullptr) fclose(file_to_save);
             else if (remaining_content_length < 0) {
                 // copy new request values to buffer
                 int new_request_buffer_size = remaining_content_length * -1;
