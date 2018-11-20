@@ -16,11 +16,18 @@ int main() {
     for (int i = 0; i < requests.size(); i++) {
         process_request(requests[i]);
     }
-
     return 0;
 }
 
 void process_request(vector<request> requests) {
-    int sock_fd = get_socket_fd(requests[0]);
-    send_request(sock_fd, requests);
+    int sock_fd;
+    int start_index = 0;
+    int state = 0;
+    while (state != -1) {
+        sock_fd = get_socket_fd(requests[0]);
+        // if state = -1 this means that all requests are successful
+        state = send_request(sock_fd, requests, start_index);
+//        cout << state << endl;
+        start_index = state;
+    }
 }
