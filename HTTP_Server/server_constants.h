@@ -18,5 +18,6 @@
 
 const std::string REQUEST_HEADER_END = "\r\n\r\n";
 const int SERVER_BUFFER_SIZE = 1024;
+const int MAX_SIMULTANEOUS_CONNECTIONS = 100;
 
 #endif //HTTP_Server_CONSTANTS_H

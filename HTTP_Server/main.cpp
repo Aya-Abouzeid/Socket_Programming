@@ -13,9 +13,12 @@
 #include "server_info.h"
 #include "socket_manager.h"
 #include "request_handler.h"
+#include "timout_manager.h"
 #include <unistd.h>
 #include <cstring>
 #include <thread>
+#include <mutex>          // std::mutex
+#include <condition_variable>
 
 using namespace std;
 
@@ -25,12 +28,15 @@ int main(int argc, char* argv[]) {
     socklen_t clilen;
     struct sockaddr_in cli_addr;
     ssize_t n;
+    mutex mtx;           // mutex for critical section
+
+    map<int, chrono::system_clock::time_point> open_sockets;
 //    if (argc < 2) {
 //        fprintf(stderr,"ERROR, no port provided\n");
 //        exit(1);
 //    }
 //    portno = atoi(argv[1]);
-    portno = 4445;
+    portno = 4444;
 //    if (argc < 2) {
 //        fprintf(stderr,"ERROR, no port provided\n");
 //        exit(1);
@@ -42,15 +48,16 @@ int main(int argc, char* argv[]) {
     server_info.port_number = portno;
     int sockfd = get_socket_fd(server_info);
 
-    if (listen(sockfd, 1) < 0) {
+    if (listen(sockfd, 100) < 0) {
         perror("listen failed");
     }
 
     cout << "Server running on port " << portno << " , waiting for new requests .......\n";
-    while(true) {
+    while (true) {
+        while (open_sockets.size() >= MAX_SIMULTANEOUS_CONNECTIONS);
 
         clilen = sizeof(cli_addr);
-        if((newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen)) < 0){
+        if ((newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen)) < 0) {
             perror("accepting failed");
             break;
         }
@@ -60,78 +67,20 @@ int main(int argc, char* argv[]) {
             exit(1);
         }
 
-        struct timeval timeout;
-        timeout.tv_sec = 60;
-        timeout.tv_usec = 0;
+        auto current_time = chrono::system_clock::now();
 
-        if (setsockopt(newsockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof timeout) < 0)
-            cerr << "setsockopt failed\n";
+        thread handle_req(handle_request, newsockfd, ref(mtx), ref(open_sockets));
 
-        thread handle_req(handle_request, newsockfd);
+        // add current socket to open sockets map
+        mtx.lock();
+        open_sockets[newsockfd] = current_time;
+        update_timeout(ref(mtx), ref(open_sockets));
+        mtx.unlock();
+
+
         handle_req.detach();
     }
 
     close(sockfd);
     return 0;
-    
-//}
-//    int sockfd, *newsockfd, port_number;
-//    struct sockaddr_in serv_addr, cli_addr;
-//
-//    if (argc > 1) {
-//        port_number = atoi(argv[1]);;
-//    } else {
-//        cout << "ERROR, no port provided\n";
-//        exit(1);
-//    }
-//
-//    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-//    if (sockfd < 0) {
-//        cout << "ERROR opening socket\n";
-//        exit(1);
-//    }
-//    bzero((char *) &serv_addr, sizeof(serv_addr));
-//    serv_addr.sin_family = AF_INET;
-//    serv_addr.sin_addr.s_addr = INADDR_ANY;
-//    serv_addr.sin_port = htons(port_number);
-//
-//    if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-//        cout << "ERROR on binding\n";
-//        exit(1);
-//    }
-//    listen(sockfd, 5);
-//    socklen_t clilen = sizeof(cli_addr);
-//    while (newsockfd = accept(sockfd, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen)) {
-//        cout << "Connection accepted";
-//        pthread_t thread;
-//        newsockfd = malloc(1);
-//        *newsockfd = cli_addr;
-////        if (pthread_create( &thread, NULL, connection_handler, (void*) newsockfd) < 0) {
-////            cout << "could not create thread";
-////            return 1;
-////        }
-////        cout << "Handler assigned";
-////    }
-//
-//    char buffer[BUFFER_SIZE];
-//    bzero(buffer, BUFFER_SIZE);
-//    int n = read(newsockfd, buffer, BUFFER_SIZE - 1);
-//    if (n < 0) {
-//        cout << "ERROR reading from socket\n";
-//        exit(1);
-//    }
-//    printf("Here is the message: %s\n", buffer);
-//
-//    n = write(newsockfd,"I got your message",18);
-//    if (n < 0) {
-//        cout << "ERROR writing to socket\n";
-//        exit(1);
-//    }
-//    close(newsockfd);
-//    close(sockfd);
-//    return 0;
 }
-//
-//void *connection_handler(void *client_socket) {
-//
-//}

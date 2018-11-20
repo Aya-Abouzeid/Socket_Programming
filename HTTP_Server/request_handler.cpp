@@ -14,6 +14,8 @@
 #include "request_handler.h"
 #include "server_constants.h"
 #include "request_parser.h"
+#include "timout_manager.h"
+#include <mutex>
 
 using namespace std;
 
@@ -83,9 +85,9 @@ void process_request_from_header(struct server_request req, char* buffer,  long 
     }
 }
 
-void handle_request(int client_fd) {
+void handle_request(int client_fd, mutex &mtx, std::map<int, std::chrono::system_clock::time_point> &open_sockets) {
     cout << "New connection created " << client_fd << ".\n";
-
+    cout << "Currently " << open_sockets.size() << " users connected\n";
     bool end_connection = false;
     bool connection_close = false; // marked true when request header contains Connection: close
     char current_buffer[SERVER_BUFFER_SIZE];
@@ -161,7 +163,15 @@ void handle_request(int client_fd) {
 
     } while (!end_connection);
 
+    // updating time out if needed
+    mtx.lock();
+    open_sockets.erase(client_fd);
+
+    update_timeout(mtx, open_sockets);
+    mtx.unlock();
+
     close(client_fd);
+
     cout << "Closing connection " << client_fd << ".\n";
 }
 
@@ -181,7 +191,7 @@ string get_response_headers(const string &file_name, long len) {
     if (tokens.size() == 1) tokens.emplace_back("");
     initialize_file_extensions_if_needed();
     string content_type = FILE_EXTENSIONS[tokens[1]];
-    string headers = "HTTP/1.1 200 OK\r\nContent-Type: " + content_type
+    string headers = "HTTP/1.1 200 OK\r\nConnection : Keep-Alive\r\nContent-Type: " + content_type
                                  + "\r\nContent-Length: " + to_string(len) + "\r\n\r\n";
     return headers;
 }
