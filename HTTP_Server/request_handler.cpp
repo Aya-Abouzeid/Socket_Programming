@@ -21,10 +21,8 @@ void initialize_file_extensions_if_needed();
 map<string, string> get_headers_map(string header);
 
 string get_file_name(const server_request &req, map<string, string> &headersMap);
-
 string get_response_headers(const string &file_name, long len);
 
-void get_new_total(int content_length, char *&total, string &totalString, long &read_in_buffer);
 
 map<string, string> FILE_EXTENSIONS;
 map<string, string> CONTENT_TO_FILE_EXTENSIONS;
@@ -128,7 +126,6 @@ void handle_request(int client_fd) {
                 if (last_request(header_map)) connection_close = true;
                 req = extract_request_params_from_header(header);
                 req.client_fd = client_fd;
-                // TODO file hirerachy
                 remaining_content_length = atol(header_map["Content-Length"].c_str());
                 long tmp_size = current_data_as_string.size();
                 int readed_body_length = tmp_size - s - 4 > remaining_content_length ? remaining_content_length : tmp_size - s - 4;
@@ -163,17 +160,6 @@ void handle_request(int client_fd) {
 
     close(client_fd);
     cout << "Closing connection " << client_fd << ".\n";
-}
-
-
-void get_new_total(int content_length, char *&total, string &totalString, long &read_in_buffer) {
-    char* newTotal = new char();
-    read_in_buffer -= content_length;
-    char* temp = &total[content_length];
-    memcpy(newTotal, temp, read_in_buffer);
-    total = newTotal;
-    total[read_in_buffer] = '\0';
-    totalString = temp;
 }
 
 string get_response_headers(const string &file_name, long len) {
