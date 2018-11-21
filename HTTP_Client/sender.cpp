@@ -46,7 +46,7 @@ string get_file_name(request req, map<string, string> headersMap);
 string get_file_type(string const file_name);
 bool send_get_request(int sock_fd, request req, bool last_request_for_server);
 bool send_post_request(int sock_fd, request req, bool last_request_for_server);
-char* append(const char *s, const char* c);
+char* append(const char *s, const char* c, int sizeS, int sizeC);
 
 void process_data(request req, char* buffer, long remaining_content_length, int n, FILE *file_to_save) {
     int length = n < remaining_content_length ? n : remaining_content_length;
@@ -159,7 +159,7 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
                 process_header(req, current_buffer, readed_body_length, remaining_buffer, &file_to_save, s,
                                headersMap, !file_found);
             } else { // header not ended
-                buffer = append(buffer, current_buffer);
+                buffer = append(buffer, current_buffer, buffer_size, n);
                 buffer_size += n;
             }
         }
@@ -304,12 +304,9 @@ string get_file_name(request req, map<string, string> headersMap) {
     return name;
 }
 
-char* append(const char *s, const char* c) {
-    size_t lenS = strlen(s);
-    size_t lenC = strlen(c);
-    char buf[lenS+lenC+1];
+char* append(const char *s, const char* c, int lenS, int lenC) {
+    char buf[lenS+lenC];
     memcpy(buf, s, lenS);
     memcpy(buf + lenS, c, lenC);
-    buf[lenS+lenC] = '\0';
     return strdup(buf);
 }
