@@ -109,6 +109,7 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
         long remaining_content_length = 1;
         map<string, string> headersMap;
         bool firstLoop = true;
+        int total_size = 0;
 
         // check no error and didn't reached content length size
         while (n > 0 && (!headersEnded || remaining_content_length > 0)) {
@@ -123,8 +124,10 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
                 memcpy(current_buffer, buffer, buffer_size);
                 buffer = "";
                 buffer_size = 0;
+                total_size = n;
             } else {
                 n = read(sock_fd, current_buffer, BUFFER_SIZE - 1);
+                total_size = n + buffer_size;
                 temp_received_data.append(buffer);
                 if (n < 0) {
                     cout << "error getting data from server" << endl;
@@ -148,7 +151,7 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
                             headersMap.find("Content-Length").operator*().second.c_str()) : 0;
                 }
 
-                int remaining_buffer = temp_received_data.size() - s - 4;
+                int remaining_buffer = total_size - s - 4;
                 int readed_body_length =
                         remaining_buffer > remaining_content_length ? remaining_content_length : remaining_buffer;
                 remaining_content_length -= remaining_buffer;
