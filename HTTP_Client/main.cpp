@@ -11,7 +11,8 @@ void process_request(vector<request> requests);
 int main() {
     cout << "Enter Input File Path!" << endl;
     string file_path;
-    cin >> file_path;
+//    cin >> file_path;
+    file_path = "input.txt";
     vector<vector<request>> requests = read_requests_from_file(file_path);
     for (int i = 0; i < requests.size(); i++) {
         process_request(requests[i]);

@@ -145,10 +145,11 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
                 headersEnded = true;
                 string rest_of_header = temp_received_data.substr(0, s);
                 bool file_found = rest_of_header != "HTTP/1.1 404 Not Found";
-                if (file_found) {
+                if (file_found && req.request_type == GET) {
                     headersMap = get_headers(rest_of_header);
-                    remaining_content_length = req.request_type == GET ? atol(
-                            headersMap.find("Content-Length").operator*().second.c_str()) : 0;
+                    remaining_content_length = atol(headersMap.find("Content-Length").operator*().second.c_str());
+                } else {
+                    remaining_content_length = 0;
                 }
 
                 int remaining_buffer = total_size - s - 4;
