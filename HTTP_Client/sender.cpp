@@ -77,6 +77,7 @@ void process_header(request req, const char *buffer, long remaining_content_leng
 
 int send_request(int sock_fd, vector<request> requests_info, int start_index) {
     int restart_index = -1;
+    string file_name;
     // send all requests
     for (int i = start_index; i < requests_info.size(); i++) {
         auto req = requests_info[i];
@@ -166,6 +167,9 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
         // only close the file if GET
         if (req.request_type == GET && file_to_save != nullptr) {
             fclose(file_to_save);
+            file_name = get_file_name(req, headersMap);
+//            cout << file_name << endl;
+            system(("xdg-open ./" + file_name).c_str());
             file_to_save = nullptr;
         }
 
@@ -180,7 +184,6 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
             buffer_size = 0;
         }
     }
-
     close(sock_fd);
     return restart_index;
 }
