@@ -64,13 +64,13 @@ void process_header(request req, const char *buffer, long length, int start, FIL
     if (!file_not_found) {
         if (req.request_type == POST) {
             string str_buffer = buffer;
-            cout << str_buffer.substr(0, start + 4 + length);
+            cout << str_buffer.substr(0, start);
         } else if (req.request_type == GET) {
             *file_to_save = fopen(get_file_name(req, headersMap).c_str(), "w+");
             fwrite(&buffer[start], sizeof(char), sizeof(char) * length, *file_to_save);
         }
     } else {
-        cout << "FILE NOT FOUND" << endl;
+        cout << "FILE NOT FOUND\n\n";
     }
 }
 
