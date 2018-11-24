@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
     server_info.port_number = portno;
     int sockfd = get_socket_fd(server_info);
 
-    if (listen(sockfd, 100) < 0) {
+    if (listen(sockfd, 10000) < 0) {
         perror("listen failed");
     }
 
@@ -74,9 +74,8 @@ int main(int argc, char* argv[]) {
         // add current socket to open sockets map
         mtx.lock();
         open_sockets[newsockfd] = current_time;
-        update_timeout(ref(mtx), ref(open_sockets));
+//        update_timeout(ref(mtx), ref(open_sockets));
         mtx.unlock();
-
 
         handle_req.detach();
     }

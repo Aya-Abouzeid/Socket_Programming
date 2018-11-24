@@ -13,7 +13,7 @@ using namespace std;
 void update_timeout(std::mutex &mtx, std::map<int, std::chrono::system_clock::time_point> &open_sockets) {
     int timeout_sec = 3 * MAX_SIMULTANEOUS_CONNECTIONS / (open_sockets.size()+1);
     struct timeval timeout;
-    timeout.tv_sec = timeout_sec;
+    timeout.tv_sec = timeout_sec+1;
     timeout.tv_usec = 0;
 
     for (map<int, std::chrono::system_clock::time_point>::iterator it = open_sockets.begin(); it != open_sockets.end(); it++ )
