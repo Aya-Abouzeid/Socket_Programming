@@ -177,7 +177,7 @@ string get_response_headers(const string &file_name, long len) {
     if (tokens.size() == 1) tokens.emplace_back("");
     initialize_file_extensions_if_needed();
     string content_type = FILE_EXTENSIONS[tokens[1]];
-    string headers = "HTTP/1.1 200 OK\r\nConnection : Keep-Alive\r\nContent-Type: " + content_type
+    string headers = "HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Type: " + content_type
                                  + "\r\nContent-Length: " + to_string(len) + "\r\n\r\n";
     return headers;
 }

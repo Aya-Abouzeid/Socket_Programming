@@ -68,7 +68,7 @@ void process_header(request req, const char *buffer, long remaining_content_leng
             cout << str_buffer.substr(0, start + 4 + length);
         } else if (req.request_type == GET) {
             *file_to_save = fopen(get_file_name(req, headersMap).c_str(), "w+");
-            fwrite((void *) &buffer[start + 4], sizeof(char), sizeof(char) * length, *file_to_save);
+            fwrite(&buffer[start], sizeof(char), sizeof(char) * length, *file_to_save);
         }
     } else {
         cout << "FILE NOT FOUND" << endl;
@@ -129,6 +129,7 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
             } else {
                 n = read(sock_fd, current_buffer, BUFFER_SIZE - 1);
                 total_size = n + buffer_size;
+                cout << n << endl;
                 temp_received_data.append(buffer);
                 if (n < 0) {
                     cout << "error getting data from server" << endl;
@@ -157,7 +158,7 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
                 int readed_body_length =
                         remaining_buffer > remaining_content_length ? remaining_content_length : remaining_buffer;
                 remaining_content_length -= remaining_buffer;
-                process_header(req, current_buffer, readed_body_length, remaining_buffer, &file_to_save, s,
+                process_header(req, current_buffer, readed_body_length, remaining_buffer, &file_to_save, n-remaining_buffer,
                                headersMap, !file_found);
             } else { // header not ended
                 buffer = append(buffer, current_buffer, buffer_size, n);
@@ -178,6 +179,7 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
             int new_request_buffer_size = remaining_content_length * -1;
             buffer_size = new_request_buffer_size;
             buffer = new char[new_request_buffer_size];
+            bzero(buffer, new_request_buffer_size);
             memcpy(buffer, current_buffer + n - new_request_buffer_size, new_request_buffer_size);
         } else {
             buffer = "";
