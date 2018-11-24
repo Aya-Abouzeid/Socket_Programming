@@ -59,10 +59,9 @@ void process_data(request req, char* buffer, long remaining_content_length, int 
     }
 }
 
-void process_header(request req, const char *buffer, long remaining_content_length, int n, FILE **file_to_save, int start,
+void process_header(request req, const char *buffer, long length, int start, FILE **file_to_save,
                     map<string, string> headersMap, bool file_not_found) {
     if (!file_not_found) {
-        int length = n < remaining_content_length ? n : remaining_content_length;
         if (req.request_type == POST) {
             string str_buffer = buffer;
             cout << str_buffer.substr(0, start + 4 + length);
@@ -75,6 +74,13 @@ void process_header(request req, const char *buffer, long remaining_content_leng
     }
 }
 
+/**.
+ * Send all requests to the given server and get their responses
+ * @param sock_fd the socket to send through
+ * @param requests_info vector of requests info to send
+ * @param start_index indicate where to start in the vector
+ * @return an integer indicating the index of the failed request, if no failure return -1
+ */
 int send_request(int sock_fd, vector<request> requests_info, int start_index) {
     int restart_index = -1;
     string file_name;
@@ -129,7 +135,6 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
             } else {
                 n = read(sock_fd, current_buffer, BUFFER_SIZE - 1);
                 total_size = n + buffer_size;
-                cout << n << endl;
                 temp_received_data.append(buffer);
                 if (n < 0) {
                     cout << "error getting data from server" << endl;
@@ -158,7 +163,7 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
                 int readed_body_length =
                         remaining_buffer > remaining_content_length ? remaining_content_length : remaining_buffer;
                 remaining_content_length -= remaining_buffer;
-                process_header(req, current_buffer, readed_body_length, remaining_buffer, &file_to_save, n-remaining_buffer,
+                process_header(req, current_buffer, readed_body_length, n-remaining_buffer, &file_to_save,
                                headersMap, !file_found);
             } else { // header not ended
                 buffer = append(buffer, current_buffer, buffer_size, n);
@@ -169,7 +174,6 @@ int send_request(int sock_fd, vector<request> requests_info, int start_index) {
         if (req.request_type == GET && file_to_save != nullptr) {
             fclose(file_to_save);
             file_name = get_file_name(req, headersMap);
-//            cout << file_name << endl;
             system(("xdg-open ./" + file_name).c_str());
             file_to_save = nullptr;
         }
@@ -257,7 +261,6 @@ bool send_post_request(int sock_fd, request req, bool last_request_for_server) {
 
     string content_type = get_file_type(req.file_name);
     string req_header = post_header(last_request_for_server, req, file_size, content_type);
-
     ssize_t n = write(sock_fd, req_header.c_str(), strlen(req_header.c_str()));
 
     if (n <= 0) {

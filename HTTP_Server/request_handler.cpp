@@ -33,8 +33,6 @@ char* append(char *s, const char* c, long lenS, long lenC) {
     char buf[lenS + lenC];
     memcpy(buf, s, lenS);
     memcpy(buf + lenS, c, lenC);
-    if (lenS != 0)
-        free(s);
     return strdup(buf);
 }
 
@@ -42,10 +40,8 @@ bool last_request(map<string, string> headersMap) {
     return headersMap["Connection"] == "close" || headersMap["Connection"] == "close\\r";
 }
 
-void process_request_from_header(struct server_request req, char* buffer,  long remaining_content_length, int n, int start,
+void process_request_from_header(struct server_request req, char* buffer,  long length, int start,
         FILE **file_to_save, map<string, string> header_map) {
-    int length = n < remaining_content_length ? n : remaining_content_length;
-
     if (req.request_type == GET) {
         // process all GET
         string file_name = req.file_name.substr(1);
@@ -68,7 +64,7 @@ void process_request_from_header(struct server_request req, char* buffer,  long 
             inFile.close();
 
             string headers = get_response_headers(file_name, len);
-            n = write(req.client_fd, headers.c_str(), headers.length());
+            ssize_t n = write(req.client_fd, headers.c_str(), headers.length());
             write(req.client_fd, file_body, (int) len);
             if (n < 0) {
                 cout << "ERROR writing to socket\n";
@@ -84,38 +80,40 @@ void process_request_from_header(struct server_request req, char* buffer,  long 
 }
 
 void handle_request(int client_fd, mutex &mtx, std::map<int, std::chrono::system_clock::time_point> &open_sockets) {
-    cout << "New connection created " << client_fd << ".\n";
-    cout << "Currently " << open_sockets.size() << " users connected\n";
     bool end_connection = false;
     bool connection_close = false; // marked true when request header contains Connection: close
     char current_buffer[SERVER_BUFFER_SIZE];
     ssize_t n = 1;
-    char* buffer = (char*) malloc(sizeof(char));
-    buffer[0] = ' ';
+    char* buffer = "";
     long buffer_size = 0;
     bool post_request = false;
     long remaining_content_length = 0;
     struct server_request req;
     FILE *file_to_save = nullptr;
     bool has_previous_data = false;
+    int total_buffer_size = 0;
     do {
         bzero(current_buffer, SERVER_BUFFER_SIZE);
+        string current_data_as_string;
+
         if (has_previous_data) {
             has_previous_data = false;
             n = buffer_size;
             memcpy(current_buffer, buffer, buffer_size);
             buffer = "";
             buffer_size = 0;
+            total_buffer_size = n;
         } else {
             n = read(client_fd, current_buffer, SERVER_BUFFER_SIZE - 1);
+            total_buffer_size = n + buffer_size;
+            current_data_as_string = buffer;
         }
 
         if (n <= 0) {
             if (n < 0) cerr << "Error with reading data from socket\n";
             end_connection = true;
         } else {
-            buffer = append(buffer, current_buffer, buffer_size, n+1);
-            string current_data_as_string = buffer;
+            current_data_as_string.append(current_buffer);
             unsigned long s = current_data_as_string.find(REQUEST_HEADER_END);
             if (post_request) {
                 int length = n < remaining_content_length ? n : remaining_content_length;
@@ -129,18 +127,23 @@ void handle_request(int client_fd, mutex &mtx, std::map<int, std::chrono::system
                 req = extract_request_params_from_header(header);
                 req.client_fd = client_fd;
                 remaining_content_length = atol(header_map["Content-Length"].c_str());
-                long tmp_size = current_data_as_string.size();
-                int readed_body_length = tmp_size - s - 4 > remaining_content_length ? remaining_content_length : tmp_size - s - 4;
-                remaining_content_length -= (tmp_size - s - 4);
-                process_request_from_header(req, current_buffer, readed_body_length, tmp_size - s - 4, s+4, &file_to_save, header_map);
+                int remaining_buffer = total_buffer_size - s - 4;
+                int readed_body_length =
+                        remaining_buffer > remaining_content_length ? remaining_content_length : remaining_buffer;
+                remaining_content_length -= remaining_buffer;
+                process_request_from_header(req, current_buffer, readed_body_length, n-remaining_buffer, &file_to_save, header_map);
                 if (req.request_type == POST && remaining_content_length != 0) post_request = true;
+                // print request
+                cout << header << endl << endl;
             } else { // header not ended
                 buffer = append(buffer, current_buffer, buffer_size, n+1);
                 buffer_size += n ;
             }
 
-            if (remaining_content_length == 0 && req.request_type == POST && file_to_save != nullptr) fclose(file_to_save);
-            else if (remaining_content_length < 0) {
+            if (remaining_content_length == 0 && req.request_type == POST && file_to_save != nullptr) {
+                fclose(file_to_save);
+                file_to_save = nullptr;
+            } else if (remaining_content_length < 0) {
                 // copy new request values to buffer
                 int new_request_buffer_size = remaining_content_length * -1;
                 buffer_size = new_request_buffer_size;
@@ -149,6 +152,7 @@ void handle_request(int client_fd, mutex &mtx, std::map<int, std::chrono::system
 
                 // resetting all parameters
                 if (req.request_type == POST) fclose(file_to_save);
+                file_to_save = nullptr;
                 post_request = false;
                 remaining_content_length = 0;
 
@@ -168,8 +172,6 @@ void handle_request(int client_fd, mutex &mtx, std::map<int, std::chrono::system
     mtx.unlock();
 
     close(client_fd);
-
-    cout << "Closing connection " << client_fd << ".\n";
 }
 
 string get_response_headers(const string &file_name, long len) {

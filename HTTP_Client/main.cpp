@@ -28,7 +28,6 @@ void process_request(vector<request> requests) {
         sock_fd = get_socket_fd(requests[0]);
         // if state = -1 this means that all requests are successful
         state = send_request(sock_fd, requests, start_index);
-//        cout << state << endl;
         start_index = state;
     }
 }

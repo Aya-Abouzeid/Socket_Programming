@@ -24,25 +24,17 @@ using namespace std;
 
 int main(int argc, char* argv[]) {
     int newsockfd;
-    u_short portno = 4545;
+    u_short portno;
     socklen_t clilen;
     struct sockaddr_in cli_addr;
-    ssize_t n;
     mutex mtx;           // mutex for critical section
 
     map<int, chrono::system_clock::time_point> open_sockets;
-//    if (argc < 2) {
-//        fprintf(stderr,"ERROR, no port provided\n");
-//        exit(1);
-//    }
-//    portno = atoi(argv[1]);
-    portno = 4444;
-//    if (argc < 2) {
-//        fprintf(stderr,"ERROR, no port provided\n");
-//        exit(1);
-//    }
-//
-//    portno = atoi(argv[1]);
+    if (argc < 2) {
+        fprintf(stderr,"ERROR, no port provided\n");
+        exit(1);
+    }
+    portno = atoi(argv[1]);
     struct server server_info;
     server_info.IPaddress = INADDR_ANY;
     server_info.port_number = portno;
@@ -74,7 +66,7 @@ int main(int argc, char* argv[]) {
         // add current socket to open sockets map
         mtx.lock();
         open_sockets[newsockfd] = current_time;
-//        update_timeout(ref(mtx), ref(open_sockets));
+        cout << "=================-------------Currently " << open_sockets.size() << " users connected-------------=================\n";
         mtx.unlock();
 
         handle_req.detach();

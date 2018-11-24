@@ -19,7 +19,6 @@ using namespace std;
  * ex of line: GET file-name host-name (port-number)
  * @return object of request created with all fields initiated
  */
-server_request parse_request(string request_line,  int client_fd);
 
 server_request extract_request_params_from_header(string header);
 

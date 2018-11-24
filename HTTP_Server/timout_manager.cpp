@@ -10,6 +10,11 @@
 
 using namespace std;
 
+/**.
+ * Update the timeout for all opened sockets in the given map
+ * @param mtx  mutex for synchronizations
+ * @param open_sockets map of open sockets
+ */
 void update_timeout(std::mutex &mtx, std::map<int, std::chrono::system_clock::time_point> &open_sockets) {
     int timeout_sec = 3 * MAX_SIMULTANEOUS_CONNECTIONS / (open_sockets.size()+1);
     struct timeval timeout;
